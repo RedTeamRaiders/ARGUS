@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 6 — Bug Bounty Agent
+**Phase:** 7 — Pentest Agent
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
 **Last Commit:** (see below)
@@ -94,19 +94,18 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `data/payload_knowledge/ssti_patterns.json`
 - [x] `templates/bug_bounty_report.md.j2`
 
-### Phase 7 — Pentest Agent ⏳
-- [ ] `skills/pentest_blackbox/SKILL.md`
-- [ ] `skills/pentest_whitebox/SKILL.md`
-- [ ] `prompts/pentest.md`
-- [ ] `agents/pentest.py`
-- [ ] `tool_wrappers/hydra.py`
-- [ ] `tool_wrappers/searchsploit.py`
-- [ ] `tool_wrappers/impacket.py`
-- [ ] `tool_wrappers/linpeas.py`
-- [ ] `tool_wrappers/shodan.py`
-- [ ] `tool_wrappers/trufflehog.py`
-- [ ] `data/payload_knowledge/reverse_shells.json`
-- [ ] `templates/pentest_report.md.j2`
+### Phase 7 — Pentest Agent ✅
+- [x] `skills/pentest_blackbox/SKILL.md`
+- [x] `skills/pentest_whitebox/SKILL.md`
+- [x] `prompts/pentest.md`
+- [x] `agents/pentest.py`
+- [x] `tool_wrappers/hydra.py`
+- [x] `tool_wrappers/searchsploit.py`
+- [x] `tool_wrappers/impacket.py`
+- [x] `tool_wrappers/linpeas.py`
+- [x] `tool_wrappers/shodan.py`
+- [x] `data/payload_knowledge/reverse_shells.json`
+- [x] `templates/pentest_report.md.j2`
 
 ### Phase 8 — Red Team Agent ⏳
 - [ ] `skills/red_team/SKILL.md`
@@ -139,7 +138,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 7, Step 1 — `skills/pentest_blackbox/SKILL.md`
+**Resume from:** Phase 8, Step 1 — `skills/red_team/SKILL.md`
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
@@ -162,4 +161,5 @@ If quota runs out, resume from the **Next Step** section below.
 | 2026-05-19 | 3 — Threat Model | 3997800 | 8 files: mitre JSONs, STRIDE/AI skills, threat_model prompt, agent, report template |
 | 2026-05-19 | 4 — Code Review | e4f265f | 7 files: SAST skill, prompt, agent, semgrep/bandit/trufflehog wrappers, report template |
 | 2026-05-19 | 5 — Crawler | a41c53f | 8 files: BFS crawler, form_detector (all editor types), payload_injector, monitor, auth_handler, rich_text_handler, evidence_collector |
-| 2026-05-19 | 6 — Bug Bounty | (pending) | 24 files: skill, prompt, agent (XSS pipeline), 9 tool wrappers, 9 payload knowledge JSONs, report template |
+| 2026-05-19 | 6 — Bug Bounty | 7619f61 | 24 files: skill, prompt, agent (XSS pipeline), 9 tool wrappers, 9 payload knowledge JSONs, report template |
+| 2026-05-20 | 7 — Pentest | (pending) | 11 files: black/white box skills, prompt, agent, hydra/searchsploit/impacket/linpeas/shodan wrappers, reverse_shells, report template |

