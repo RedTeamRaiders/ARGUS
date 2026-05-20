@@ -7,10 +7,10 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 1 — Project Scaffold
+**Phase:** 2 — Core Engine
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
-**Last Commit:** d627fbe — feat: Phase 1 — ARGUS project scaffold
+**Last Commit:** (see below)
 
 ---
 
@@ -31,14 +31,14 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `shared/CLAUDE.md`
 - [x] `tool_wrappers/CLAUDE.md`
 
-### Phase 2 — Core Engine (ReAct loop + shared infrastructure) ⏳
-- [ ] `shared/logger.py`
-- [ ] `shared/session.py`
-- [ ] `shared/auth_gate.py`
-- [ ] `shared/reporter.py`
-- [ ] `shared/tools.py`
-- [ ] `agents/__init__.py`
-- [ ] `agents/base_agent.py`
+### Phase 2 — Core Engine (ReAct loop + shared infrastructure) ✅
+- [x] `shared/logger.py`
+- [x] `shared/session.py`
+- [x] `shared/auth_gate.py`
+- [x] `shared/reporter.py`
+- [x] `shared/tools.py`
+- [x] `agents/__init__.py`
+- [x] `agents/base_agent.py`
 
 ### Phase 3 — Threat Model Agent ⏳
 - [ ] `skills/threat_model/SKILL.md`
@@ -139,7 +139,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 2, Step 1 — `shared/logger.py`
+**Resume from:** Phase 3, Step 1 — `data/mitre_attack.json` (fetch MITRE ATT&CK data)
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
@@ -158,3 +158,4 @@ If quota runs out, resume from the **Next Step** section below.
 | Date | Phase | Commit | Files Added |
 |---|---|---|---|
 | 2026-05-19 | 1 — Scaffold | d627fbe | 13 files: scaffold, config, CLAUDE.md hierarchy, MCP config, dev skills |
+| 2026-05-19 | 2 — Core Engine | (pending push) | 7 files: logger, session, auth_gate, reporter, tools, base_agent (ReAct loop) |
