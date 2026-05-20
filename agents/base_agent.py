@@ -25,6 +25,7 @@ from config import (
 )
 from shared.auth_gate import AuthRecord
 from shared.logger import audit
+from shared.progress import LiveDashboard
 from shared.reporter import Confidence, Finding, Severity
 from shared.session import Scope, Session
 
@@ -137,6 +138,7 @@ class BaseAgent:
         self._skill        = self._load_skill()
         self._system_prompt= self._load_prompt()
         self._tool_specs: list[dict] = []   # set by sub-agent
+        self._dashboard: Optional[LiveDashboard] = None
 
     def _load_skill(self) -> str:
         path = SKILLS_DIR / self.name / "SKILL.md"
@@ -168,6 +170,12 @@ class BaseAgent:
         )
         audit.info(self.name, f"Starting engagement | target={target}")
 
+        self._dashboard = LiveDashboard(
+            target=target, agent=self.name,
+            cycles_max=context._exhaustion_limit,
+        )
+        self._dashboard.start()
+
         while not context.exhausted():
             # ── THINK ────────────────────────────────────────────────────
             thought = await self._think(context)
@@ -182,6 +190,10 @@ class BaseAgent:
                 continue
 
             context.mark_tried(action_key)
+
+            if self._dashboard:
+                tool = thought.next_action.get("tool", "")
+                self._dashboard.set_last_action(f"{tool}: {thought.rationale[:70]}")
 
             # ── ACT ───────────────────────────────────────────────────────
             result = await self._act(thought, context)
@@ -201,6 +213,8 @@ class BaseAgent:
                     analysis.finding.validate()
                     context.findings.append(analysis.finding)
                     await session.add_finding(analysis.finding.to_dict())
+                    if self._dashboard:
+                        self._dashboard.add_finding(analysis.finding.severity.value)
                     audit.finding(
                         self.name,
                         analysis.finding.title,
@@ -214,6 +228,12 @@ class BaseAgent:
 
             if analysis.interesting and analysis.follow_up:
                 context.push_focus(analysis.follow_up)
+
+            if self._dashboard:
+                self._dashboard.tick()
+
+        if self._dashboard:
+            self._dashboard.stop()
 
         await session.close()
         audit.info(self.name, f"Engagement complete | findings={len(context.findings)}")
