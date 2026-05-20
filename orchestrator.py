@@ -56,11 +56,22 @@ class Orchestrator:
     async def _run_agent_flow(self, menu_choice: str) -> None:
         """Full flow: auth gate → agent config → run → report."""
         agent_name, display_name, _ = MENU[menu_choice]
+        # Map menu choice to the engagement type string so auth gate
+        # skips the redundant "Select engagement type" prompt.
+        engagement_type = {
+            "1": "Penetration Test",
+            "2": "Bug Bounty",
+            "3": "Red Team",
+            "4": "AI Red Team",
+            "5": "Voice Red Team",
+            "6": "Threat Model",
+            "7": "Secure Code Review",
+        }[menu_choice]
 
         console.print(f"\n[bold cyan]► {display_name}[/bold cyan]\n")
 
         try:
-            auth = await require_authorization(agent_name)
+            auth = await require_authorization(agent_name, engagement_type=engagement_type)
         except Exception as e:
             console.print(f"\n[bold red]Authorization failed: {e}[/bold red]\n")
             return

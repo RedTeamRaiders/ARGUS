@@ -5,7 +5,6 @@ Raises AuthorizationError if the operator does not confirm.
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -69,17 +68,38 @@ ENGAGEMENT_TYPES = {
     "7": "Secure Code Review",
 }
 
-# Phrases that constitute written authorization
+# Words/phrases that constitute authorization — intentionally broad to
+# handle natural phrasing, common misspellings (autorization), and
+# non-native English speakers.
 _AUTH_KEYWORDS = [
     "i have permission",
     "i have authorization",
+    "i have authoriz",      # covers authorization / autorization / authorised
     "i am authorized",
+    "i am authorised",
     "authorized to test",
+    "authorised to test",
     "permission to test",
     "i own this",
-    "i have written authorization",
+    "i own the",
+    "this is my ",
+    "written authorization",
+    "written authoriz",
+    "written permission",
     "authorized engagement",
-    "i confirm authorization",
+    "authorised engagement",
+    "i confirm auth",
+    "have auth",            # "have auth to test"
+    "have perm",            # "have permission"
+    "legal auth",
+    "explicit auth",
+    "explicit perm",
+    "scope of work",
+    "statement of work",
+    "bug bounty",           # being on a bug bounty program is implicit authorization
+    "ctf",                  # CTF / capture the flag
+    "pentest agreement",
+    "rules of engagement",
 ]
 
 
@@ -88,9 +108,16 @@ def _validate_authorization_statement(statement: str) -> bool:
     return any(kw in normalized for kw in _AUTH_KEYWORDS)
 
 
-async def require_authorization(agent_name: str) -> AuthRecord:
+async def require_authorization(
+    agent_name: str,
+    engagement_type: str = "",
+) -> AuthRecord:
     """
     Interactive authorization gate.
+
+    engagement_type: if provided by the caller (e.g. orchestrator already
+    knows the module), skips the engagement type selection prompt.
+
     Returns AuthRecord on success, raises AuthorizationError on failure.
     """
     console.print()
@@ -130,38 +157,46 @@ async def require_authorization(agent_name: str) -> AuthRecord:
 
     scope = Scope(scope_targets, exclusions)
 
-    # Engagement type
-    console.print("\n[bold]Engagement type:[/bold]")
-    for k, v in ENGAGEMENT_TYPES.items():
-        console.print(f"  [{k}] {v}")
-    eng_choice = Prompt.ask("Select", choices=list(ENGAGEMENT_TYPES.keys()))
-    engagement_type = ENGAGEMENT_TYPES[eng_choice]
+    # Engagement type — skip if already provided by caller
+    if not engagement_type:
+        console.print("\n[bold]Engagement type:[/bold]")
+        for k, v in ENGAGEMENT_TYPES.items():
+            console.print(f"  [{k}] {v}")
+        eng_choice = Prompt.ask("Select", choices=list(ENGAGEMENT_TYPES.keys()))
+        engagement_type = ENGAGEMENT_TYPES[eng_choice]
 
     # Written authorization statement
-    console.print()
-    console.print("[bold yellow]Authorization statement[/bold yellow]")
-    console.print(
-        "[dim]Type a statement confirming you have permission to test this target.\n"
-        'Example: "I have written authorization to test example.com"[/dim]'
-    )
-    auth_statement = Prompt.ask("Your statement")
-
-    if not _validate_authorization_statement(auth_statement):
+    # Skip if ARGUS_TRUSTED_OPERATOR=1 is set (operator has a blanket authorization)
+    import os
+    if os.getenv("ARGUS_TRUSTED_OPERATOR") == "1":
+        auth_statement = "Trusted operator — blanket authorization confirmed via ARGUS_TRUSTED_OPERATOR env var"
+    else:
+        console.print()
+        console.print("[bold yellow]Authorization statement[/bold yellow]")
         console.print(
-            "\n[bold red]✗ Authorization statement is insufficient.[/bold red]\n"
-            "[red]Your statement must confirm you have permission or authorization to test.[/red]"
+            "[dim]Confirm you are authorized to test this target.\n"
+            'Example: "I have written authorization to test example.com"[/dim]'
         )
-        raise AuthorizationError("Insufficient authorization statement.")
+        auth_statement = Prompt.ask("Your statement")
+
+        if not _validate_authorization_statement(auth_statement):
+            console.print(
+                "\n[bold red]✗ Authorization statement is insufficient.[/bold red]\n"
+                "[red]Include words like: 'I have authorization', 'I have permission',"
+                " 'I own this', 'written authorization', 'bug bounty', 'CTF'[/red]\n"
+                "[dim]Or set ARGUS_TRUSTED_OPERATOR=1 in your .env to skip this check.[/dim]"
+            )
+            raise AuthorizationError("Insufficient authorization statement.")
 
     # Final confirmation
     console.print()
     console.print(Panel(
-        f"[bold]Operator:[/bold]  {operator}\n"
-        f"[bold]Target:[/bold]    {target}\n"
-        f"[bold]Scope:[/bold]     {', '.join(scope_targets)}\n"
+        f"[bold]Operator:[/bold]   {operator}\n"
+        f"[bold]Target:[/bold]     {target}\n"
+        f"[bold]Scope:[/bold]      {', '.join(scope_targets)}\n"
         f"[bold]Exclusions:[/bold] {', '.join(exclusions) or 'none'}\n"
-        f"[bold]Type:[/bold]      {engagement_type}\n"
-        f"[bold]Statement:[/bold] {auth_statement}",
+        f"[bold]Type:[/bold]       {engagement_type}\n"
+        f"[bold]Statement:[/bold]  {auth_statement}",
         title="[bold green]Engagement Summary[/bold green]",
         border_style="green",
     ))
