@@ -100,7 +100,7 @@ class AuditLogger:
         )
         self._write(asdict(entry))
         level = logging.INFO if success else logging.WARNING
-        self._log.log(level, "[%s] %s: %s", agent, tool, command[:120])
+        self._log.log(level, "[%s] %s: %s", agent, tool, str(command)[:120])
 
     def claude_call(
         self,

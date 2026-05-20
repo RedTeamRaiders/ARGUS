@@ -6,8 +6,11 @@ Entry point.
 import asyncio
 import sys
 
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.text import Text
+
+load_dotenv()
 
 console = Console()
 
