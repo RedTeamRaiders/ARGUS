@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 3 — Threat Model Agent
+**Phase:** 4 — Code Review Agent
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
 **Last Commit:** (see below)
@@ -50,14 +50,14 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `data/mitre_attack.json`
 - [x] `data/owasp_llm_top10.json`
 
-### Phase 4 — Code Review Agent ⏳
-- [ ] `skills/code_review/SKILL.md`
-- [ ] `prompts/code_review.md`
-- [ ] `agents/code_review.py`
-- [ ] `tool_wrappers/semgrep.py`
-- [ ] `tool_wrappers/bandit.py`
-- [ ] `tool_wrappers/trufflehog.py`
-- [ ] `templates/code_review_report.md.j2`
+### Phase 4 — Code Review Agent ✅
+- [x] `skills/code_review/SKILL.md`
+- [x] `prompts/code_review.md`
+- [x] `agents/code_review.py`
+- [x] `tool_wrappers/semgrep.py`
+- [x] `tool_wrappers/bandit.py`
+- [x] `tool_wrappers/trufflehog.py`
+- [x] `templates/code_review_report.md.j2`
 
 ### Phase 5 — ARGUS Crawler (Playwright) ⏳
 - [ ] `tool_wrappers/argus_crawler/__init__.py`
@@ -139,7 +139,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 4, Step 1 — `skills/code_review/SKILL.md`
+**Resume from:** Phase 5, Step 1 — `tool_wrappers/argus_crawler/__init__.py`
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
@@ -159,4 +159,5 @@ If quota runs out, resume from the **Next Step** section below.
 |---|---|---|---|
 | 2026-05-19 | 1 — Scaffold | d627fbe | 13 files: scaffold, config, CLAUDE.md hierarchy, MCP config, dev skills |
 | 2026-05-19 | 2 — Core Engine | 1a4a90d | 7 files: logger, session, auth_gate, reporter, tools, base_agent (ReAct loop) |
-| 2026-05-19 | 3 — Threat Model | (pending) | 8 files: mitre JSONs, STRIDE/AI skills, threat_model prompt, agent, report template |
+| 2026-05-19 | 3 — Threat Model | 3997800 | 8 files: mitre JSONs, STRIDE/AI skills, threat_model prompt, agent, report template |
+| 2026-05-19 | 4 — Code Review | (pending) | 7 files: SAST skill, prompt, agent, semgrep/bandit/trufflehog wrappers, report template |

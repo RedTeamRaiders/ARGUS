@@ -1,0 +1,259 @@
+# ARGUS Secure Code Review Report
+**Target:** {{ target }}
+**Code Path:** {{ code_path }}
+**Language:** {{ language | default("Unknown") }}
+**Framework:** {{ framework | default("Unknown") }}
+**Generated:** {{ generated_at }}
+
+---
+
+## Executive Summary
+
+| Metric | Count |
+|--------|-------|
+| Total Findings | {{ findings | length }} |
+| Critical | {{ findings | selectattr("severity.value", "equalto", "Critical") | list | length }} |
+| High | {{ findings | selectattr("severity.value", "equalto", "High") | list | length }} |
+| Medium | {{ findings | selectattr("severity.value", "equalto", "Medium") | list | length }} |
+| Low | {{ findings | selectattr("severity.value", "equalto", "Low") | list | length }} |
+| Info | {{ findings | selectattr("severity.value", "equalto", "Info") | list | length }} |
+| False Positives Filtered | {{ false_positives | default(0) }} |
+
+{% set chained = findings | selectattr("chain_id", "defined") | selectattr("chain_id", "ne", None) | list %}
+{% if chained %}
+**Vulnerability chains identified:** {{ chained | map(attribute="chain_id") | unique | list | length }} chains affecting {{ chained | length }} findings
+{% endif %}
+
+{% if findings | selectattr("severity.value", "in", ["Critical", "High"]) | list %}
+### Immediate Action Required
+
+{% for f in findings | selectattr("severity.value", "in", ["Critical", "High"]) | list %}
+- **{{ f.severity.value }}** — {{ f.title }} (`{{ f.observed.split("|")[2].strip() if f.observed else "unknown" }}`)
+{% endfor %}
+{% endif %}
+
+---
+
+## Attack Surface
+
+{% if surface %}
+### Entry Points
+
+| Name | Type | Location |
+|------|------|----------|
+{% for ep in surface.get("entry_points", []) %}
+| {{ ep.name }} | {{ ep.type }} | {{ ep.location }} |
+{% endfor %}
+
+### High-Risk Files
+
+{% for f in surface.get("high_risk_files", []) %}
+- `{{ f }}`
+{% endfor %}
+
+**Authentication:** {{ surface.get("auth_mechanism", "Unknown") }}
+**Data Sensitivity:** {{ surface.get("data_sensitivity", "Unknown") | upper }}
+**Crown Jewels:** {{ surface.get("crown_jewels", []) | join(", ") or "None identified" }}
+{% endif %}
+
+---
+
+## Findings
+
+{% set critical_findings = findings | selectattr("severity.value", "equalto", "Critical") | list %}
+{% set high_findings = findings | selectattr("severity.value", "equalto", "High") | list %}
+{% set medium_findings = findings | selectattr("severity.value", "equalto", "Medium") | list %}
+{% set low_findings = findings | selectattr("severity.value", "equalto", "Low") | list %}
+{% set info_findings = findings | selectattr("severity.value", "equalto", "Info") | list %}
+
+{% if critical_findings %}
+### Critical
+
+{% for f in critical_findings %}
+#### {{ loop.index }}. {{ f.title }}
+
+| Field | Value |
+|-------|-------|
+| Severity | **CRITICAL** |
+| CWE | {{ f.cwe if f.cwe else "N/A" }} |
+| OWASP | {{ f.owasp if f.owasp else "N/A" }} |
+| MITRE ATT&CK | {{ f.mitre_attack | join(", ") if f.mitre_attack else "N/A" }} |
+| Confidence | {{ f.confidence.value }} |
+| Confirmed By | {{ f.confirmed_by | join(", ") if f.confirmed_by else "manual" }} |
+{% if f.chain_id %}| Chain | {{ f.chain_id }} |{% endif %}
+
+**Evidence:**
+```
+{{ f.evidence }}
+```
+
+**Description:** {{ f.description }}
+
+**Attack Scenario:** {{ f.inferred }}
+
+**Proof of Concept:**
+```
+{{ f.poc if f.poc else "See description above" }}
+```
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% endif %}
+
+{% if high_findings %}
+### High
+
+{% for f in high_findings %}
+#### {{ loop.index }}. {{ f.title }}
+
+| Field | Value |
+|-------|-------|
+| Severity | **HIGH** |
+| CWE | {{ f.cwe if f.cwe else "N/A" }} |
+| OWASP | {{ f.owasp if f.owasp else "N/A" }} |
+| MITRE ATT&CK | {{ f.mitre_attack | join(", ") if f.mitre_attack else "N/A" }} |
+| Confidence | {{ f.confidence.value }} |
+{% if f.chain_id %}| Chain | {{ f.chain_id }} |{% endif %}
+
+**Evidence:**
+```
+{{ f.evidence }}
+```
+
+**Description:** {{ f.description }}
+
+**Attack Scenario:** {{ f.inferred }}
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% endif %}
+
+{% if medium_findings %}
+### Medium
+
+| # | Title | CWE | OWASP | Confidence |
+|---|-------|-----|-------|------------|
+{% for f in medium_findings %}
+| {{ loop.index }} | {{ f.title }} | {{ f.cwe }} | {{ f.owasp }} | {{ f.confidence.value }} |
+{% endfor %}
+
+{% for f in medium_findings %}
+#### {{ loop.index }}. {{ f.title }}
+
+**Evidence:** `{{ f.evidence | truncate(200) }}`
+
+**Description:** {{ f.description }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% endif %}
+
+{% if low_findings or info_findings %}
+### Low / Info
+
+| # | Severity | Title | CWE |
+|---|----------|-------|-----|
+{% for f in low_findings + info_findings %}
+| {{ loop.index }} | {{ f.severity.value }} | {{ f.title }} | {{ f.cwe }} |
+{% endfor %}
+{% endif %}
+
+---
+
+## Vulnerability Chains
+
+{% set chain_ids = findings | selectattr("chain_id", "defined") | selectattr("chain_id", "ne", None) | map(attribute="chain_id") | unique | list %}
+{% if chain_ids %}
+{% for chain_id in chain_ids %}
+### {{ chain_id }}
+
+**Findings in chain:**
+{% for f in findings if f.chain_id == chain_id %}
+- {{ f.severity.value }}: {{ f.title }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+*No vulnerability chains identified.*
+{% endif %}
+
+---
+
+## Secrets Detected
+
+{% set secret_findings = findings | selectattr("title", "containing", "Secret") | list + findings | selectattr("title", "containing", "Hardcoded") | list + findings | selectattr("title", "containing", "Credential") | list %}
+{% if secret_findings %}
+| # | Title | Severity | Location |
+|---|-------|----------|----------|
+{% for f in secret_findings %}
+| {{ loop.index }} | {{ f.title }} | {{ f.severity.value }} | {{ f.observed }} |
+{% endfor %}
+
+> **Action required:** Rotate all detected secrets immediately. Assume they are compromised.
+{% else %}
+*No hardcoded secrets detected.*
+{% endif %}
+
+---
+
+## CWE Coverage
+
+{% set all_cwes = findings | map(attribute="cwe") | select | unique | list %}
+| CWE | Count | Severity |
+|-----|-------|----------|
+{% for cwe in all_cwes %}
+{% set cwe_findings = findings | selectattr("cwe", "equalto", cwe) | list %}
+| {{ cwe }} | {{ cwe_findings | length }} | {{ cwe_findings | map(attribute="severity.value") | unique | join(", ") }} |
+{% endfor %}
+
+---
+
+## OWASP Top 10 Mapping
+
+| Category | Findings |
+|----------|---------|
+{% set owasp_cats = findings | map(attribute="owasp") | select | unique | list %}
+{% for cat in owasp_cats %}
+| {{ cat }} | {{ findings | selectattr("owasp", "equalto", cat) | map(attribute="title") | join(", ") }} |
+{% endfor %}
+
+---
+
+## Dependency Vulnerabilities
+
+{% set dep_findings = findings | selectattr("observed", "containing", "VulnerableDependency") | list %}
+{% if dep_findings %}
+| Package | Severity | Details |
+|---------|----------|---------|
+{% for f in dep_findings %}
+| {{ f.title }} | {{ f.severity.value }} | {{ f.description | truncate(100) }} |
+{% endfor %}
+{% else %}
+*No vulnerable dependencies identified via static analysis.*
+{% endif %}
+
+---
+
+## Remediation Priority
+
+Ordered by severity + exploitability:
+
+{% set rem_findings = findings | sort(attribute="cvss_score", reverse=True) | list %}
+{% for f in rem_findings[:15] %}
+{{ loop.index }}. **{{ f.severity.value }}** — {{ f.title }} → {{ f.remediation | truncate(120) }}
+{% endfor %}
+
+---
+
+*Report generated by ARGUS — Autonomous Reconnaissance & General-purpose Universal Security System*
+*Analysis: SAST (semgrep + bandit) + Semantic (Claude Opus) + Secrets (TruffleHog) + Dependency CVE*
