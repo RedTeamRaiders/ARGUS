@@ -1,0 +1,214 @@
+# ARGUS Bug Bounty Report
+**Target:** {{ target }}
+**Generated:** {{ generated_at }}
+**Tester:** ARGUS Bug Bounty Agent (OSCP/OSWE-style attack chain)
+
+---
+
+## Executive Summary
+
+| Severity | Count |
+|----------|-------|
+| Critical | {{ findings | selectattr("severity.value", "equalto", "Critical") | list | length }} |
+| High | {{ findings | selectattr("severity.value", "equalto", "High") | list | length }} |
+| Medium | {{ findings | selectattr("severity.value", "equalto", "Medium") | list | length }} |
+| Low | {{ findings | selectattr("severity.value", "equalto", "Low") | list | length }} |
+| **Total** | **{{ findings | length }}** |
+
+{% set chained = findings | selectattr("chain_id", "defined") | selectattr("chain_id", "ne", None) | list %}
+{% if chained %}
+**Vulnerability chains:** {{ chained | map(attribute="chain_id") | unique | list | length }}
+{% endif %}
+
+### Highest-Impact Findings
+
+{% for f in findings | sort(attribute="cvss_score", reverse=True) | list | first(3) %}
+{{ loop.index }}. **{{ f.severity.value }}** — {{ f.title }}
+{% endfor %}
+
+---
+
+## Recon Summary
+
+{% if tech_stack %}
+### Technology Stack
+{% for tech, version in tech_stack.items() %}
+- **{{ tech }}**: {{ version }}
+{% endfor %}
+{% endif %}
+
+{% if endpoints %}
+### Endpoints Discovered
+Total: {{ endpoints | length }}
+{% for ep in endpoints[:20] %}
+- `{{ ep }}`
+{% endfor %}
+{% if endpoints | length > 20 %}
+... and {{ endpoints | length - 20 }} more.
+{% endif %}
+{% endif %}
+
+---
+
+## Findings
+
+{% set critical_findings = findings | selectattr("severity.value", "equalto", "Critical") | list %}
+{% set high_findings = findings | selectattr("severity.value", "equalto", "High") | list %}
+{% set medium_findings = findings | selectattr("severity.value", "equalto", "Medium") | list %}
+{% set low_findings = findings | selectattr("severity.value", "equalto", "Low") | list %}
+
+{% if critical_findings %}
+### Critical
+
+{% for f in critical_findings %}
+---
+#### {{ loop.index }}. {{ f.title }}
+
+**CVSS Score:** {{ f.cvss_score }} | **CWE:** {{ f.cwe }} | **OWASP:** {{ f.owasp }}
+{% if f.chain_id %}**Chain:** {{ f.chain_id }}{% endif %}
+{% if f.url %}**URL:** `{{ f.url }}`{% endif %}
+{% if f.parameter %}**Parameter:** `{{ f.parameter }}`{% endif %}
+
+**Evidence:**
+```
+{{ f.evidence }}
+```
+
+**Description:**
+{{ f.description }}
+
+**Proof of Concept:**
+```
+{{ f.poc if f.poc else "See evidence above" }}
+```
+
+**Impact:**
+{{ f.impact }}
+
+**Remediation:**
+{{ f.remediation }}
+
+{% endfor %}
+{% endif %}
+
+{% if high_findings %}
+### High
+
+{% for f in high_findings %}
+---
+#### {{ loop.index }}. {{ f.title }}
+
+**CVSS Score:** {{ f.cvss_score }} | **CWE:** {{ f.cwe }} | **OWASP:** {{ f.owasp }}
+{% if f.url %}**URL:** `{{ f.url }}`{% endif %}
+{% if f.parameter %}**Parameter:** `{{ f.parameter }}`{% endif %}
+
+**Evidence:**
+```
+{{ f.evidence }}
+```
+
+**Description:** {{ f.description }}
+
+**PoC:** {{ f.poc if f.poc else "See evidence" }}
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+{% endfor %}
+{% endif %}
+
+{% if medium_findings %}
+### Medium
+
+| # | Title | CWE | CVSS | URL |
+|---|-------|-----|------|-----|
+{% for f in medium_findings %}
+| {{ loop.index }} | {{ f.title }} | {{ f.cwe }} | {{ f.cvss_score }} | {{ f.url | truncate(50) if f.url else "N/A" }} |
+{% endfor %}
+
+{% for f in medium_findings %}
+#### {{ loop.index }}. {{ f.title }}
+**Evidence:** `{{ f.evidence | truncate(300) }}`
+**Remediation:** {{ f.remediation }}
+{% endfor %}
+{% endif %}
+
+{% if low_findings %}
+### Low
+
+| # | Title | CWE |
+|---|-------|-----|
+{% for f in low_findings %}
+| {{ loop.index }} | {{ f.title }} | {{ f.cwe }} |
+{% endfor %}
+{% endif %}
+
+---
+
+## Vulnerability Chains
+
+{% set chain_ids = findings | selectattr("chain_id", "defined") | selectattr("chain_id", "ne", None) | map(attribute="chain_id") | unique | list %}
+{% if chain_ids %}
+{% for chain_id in chain_ids %}
+### {{ chain_id }}
+
+Findings in this chain (combined impact is higher than individual findings):
+
+{% for f in findings if f.chain_id == chain_id %}
+- **{{ f.severity.value }}**: {{ f.title }} ({{ f.url | truncate(60) if f.url else "N/A" }})
+{% endfor %}
+
+**Combined Attack Path:** Attacker exploits the above findings in sequence to achieve escalated impact.
+
+{% endfor %}
+{% else %}
+*No multi-stage chains identified.*
+{% endif %}
+
+---
+
+## MITRE ATT&CK Coverage
+
+{% set all_ttps = [] %}
+{% for f in findings %}
+{% for ttp in (f.mitre_attack or []) %}
+{% if ttp not in all_ttps %}{% set _ = all_ttps.append(ttp) %}{% endif %}
+{% endfor %}
+{% endfor %}
+
+{% if all_ttps %}
+Techniques: {{ all_ttps | join(", ") }}
+{% else %}
+*No ATT&CK techniques mapped.*
+{% endif %}
+
+---
+
+## OWASP Top 10 Coverage
+
+| Category | Findings |
+|----------|---------|
+{% set owasp_cats = findings | map(attribute="owasp") | select | unique | list %}
+{% for cat in owasp_cats %}
+| {{ cat }} | {{ findings | selectattr("owasp", "equalto", cat) | map(attribute="title") | join(", ") }} |
+{% endfor %}
+
+---
+
+## Reproduction Guide
+
+> This section provides copy-paste reproduction steps for each confirmed finding.
+
+{% for f in findings | sort(attribute="cvss_score", reverse=True) | list %}
+### {{ loop.index }}. {{ f.title }}
+
+1. Navigate to: `{{ f.url or target }}`
+2. Evidence: `{{ f.evidence | truncate(200) }}`
+3. Expected result: {{ f.impact | truncate(100) }}
+
+---
+{% endfor %}
+
+*Report generated by ARGUS — Autonomous Reconnaissance & General-purpose Universal Security System*
+*Methodology: PTES + OWASP Testing Guide v4.2 + PortSwigger Web Academy*

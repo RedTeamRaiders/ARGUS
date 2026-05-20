@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 5 — ARGUS Crawler
+**Phase:** 6 — Bug Bounty Agent
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
 **Last Commit:** (see below)
@@ -69,30 +69,30 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `tool_wrappers/argus_crawler/rich_text_handler.py`
 - [x] `tool_wrappers/argus_crawler/evidence_collector.py`
 
-### Phase 6 — Bug Bounty Agent ⏳
-- [ ] `skills/bug_bounty/SKILL.md`
-- [ ] `prompts/bug_bounty.md`
-- [ ] `agents/bug_bounty.py`
-- [ ] `tool_wrappers/nmap.py`
-- [ ] `tool_wrappers/nuclei.py`
-- [ ] `tool_wrappers/gobuster.py`
-- [ ] `tool_wrappers/ffuf.py`
-- [ ] `tool_wrappers/httpx.py`
-- [ ] `tool_wrappers/katana.py`
-- [ ] `tool_wrappers/gau.py`
-- [ ] `tool_wrappers/linkfinder.py`
-- [ ] `tool_wrappers/dalfox.py`
-- [ ] `tool_wrappers/sqlmap.py`
-- [ ] `data/payload_knowledge/xss_reflected.json`
-- [ ] `data/payload_knowledge/xss_stored.json`
-- [ ] `data/payload_knowledge/xss_dom.json`
-- [ ] `data/payload_knowledge/xss_blind.json`
-- [ ] `data/payload_knowledge/xss_waf_bypass.json`
-- [ ] `data/payload_knowledge/xss_file_upload.json`
-- [ ] `data/payload_knowledge/sqli_patterns.json`
-- [ ] `data/payload_knowledge/ssrf_patterns.json`
-- [ ] `data/payload_knowledge/ssti_patterns.json`
-- [ ] `templates/bug_bounty_report.md.j2`
+### Phase 6 — Bug Bounty Agent ✅
+- [x] `skills/bug_bounty/SKILL.md`
+- [x] `prompts/bug_bounty.md`
+- [x] `agents/bug_bounty.py`
+- [x] `tool_wrappers/nmap.py`
+- [x] `tool_wrappers/nuclei.py`
+- [x] `tool_wrappers/gobuster.py`
+- [x] `tool_wrappers/ffuf.py`
+- [x] `tool_wrappers/httpx.py`
+- [x] `tool_wrappers/katana.py`
+- [x] `tool_wrappers/gau.py`
+- [x] `tool_wrappers/linkfinder.py`
+- [x] `tool_wrappers/dalfox.py`
+- [x] `tool_wrappers/sqlmap.py`
+- [x] `data/payload_knowledge/xss_reflected.json`
+- [x] `data/payload_knowledge/xss_stored.json`
+- [x] `data/payload_knowledge/xss_dom.json`
+- [x] `data/payload_knowledge/xss_blind.json`
+- [x] `data/payload_knowledge/xss_waf_bypass.json`
+- [x] `data/payload_knowledge/xss_file_upload.json`
+- [x] `data/payload_knowledge/sqli_patterns.json`
+- [x] `data/payload_knowledge/ssrf_patterns.json`
+- [x] `data/payload_knowledge/ssti_patterns.json`
+- [x] `templates/bug_bounty_report.md.j2`
 
 ### Phase 7 — Pentest Agent ⏳
 - [ ] `skills/pentest_blackbox/SKILL.md`
@@ -139,7 +139,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 6, Step 1 — `skills/bug_bounty/SKILL.md`
+**Resume from:** Phase 7, Step 1 — `skills/pentest_blackbox/SKILL.md`
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
@@ -161,4 +161,5 @@ If quota runs out, resume from the **Next Step** section below.
 | 2026-05-19 | 2 — Core Engine | 1a4a90d | 7 files: logger, session, auth_gate, reporter, tools, base_agent (ReAct loop) |
 | 2026-05-19 | 3 — Threat Model | 3997800 | 8 files: mitre JSONs, STRIDE/AI skills, threat_model prompt, agent, report template |
 | 2026-05-19 | 4 — Code Review | e4f265f | 7 files: SAST skill, prompt, agent, semgrep/bandit/trufflehog wrappers, report template |
-| 2026-05-19 | 5 — Crawler | (pending) | 8 files: BFS crawler, form_detector (all editor types), payload_injector, monitor, auth_handler, rich_text_handler, evidence_collector |
+| 2026-05-19 | 5 — Crawler | a41c53f | 8 files: BFS crawler, form_detector (all editor types), payload_injector, monitor, auth_handler, rich_text_handler, evidence_collector |
+| 2026-05-19 | 6 — Bug Bounty | (pending) | 24 files: skill, prompt, agent (XSS pipeline), 9 tool wrappers, 9 payload knowledge JSONs, report template |

