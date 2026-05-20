@@ -39,7 +39,7 @@
         "matcher": "Bash",
         "hooks": [
           {
-            "type": "shell",
+            "type": "command",
             "command": "echo \"[$(date -u +%Y-%m-%dT%H:%M:%SZ)] BASH: $CLAUDE_TOOL_INPUT\" >> .claude/audit.log 2>/dev/null || true"
           }
         ]
