@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 7 — Pentest Agent
+**Phase:** 8 — Red Team Agent
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
 **Last Commit:** (see below)
@@ -107,13 +107,13 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `data/payload_knowledge/reverse_shells.json`
 - [x] `templates/pentest_report.md.j2`
 
-### Phase 8 — Red Team Agent ⏳
-- [ ] `skills/red_team/SKILL.md`
-- [ ] `prompts/red_team.md`
-- [ ] `agents/red_team.py`
-- [ ] `tool_wrappers/bloodhound.py`
-- [ ] `tool_wrappers/crackmapexec.py`
-- [ ] `templates/red_team_report.md.j2`
+### Phase 8 — Red Team Agent ✅
+- [x] `skills/red_team/SKILL.md`
+- [x] `prompts/red_team.md`
+- [x] `agents/red_team.py`
+- [x] `tool_wrappers/bloodhound.py`
+- [x] `tool_wrappers/crackmapexec.py`
+- [x] `templates/red_team_report.md.j2`
 
 ### Phase 9 — AI Red Team + Voice ⏳
 - [ ] `skills/ai_redteam/SKILL.md`
@@ -138,7 +138,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 8, Step 1 — `skills/red_team/SKILL.md`
+**Resume from:** Phase 9, Step 1 — `skills/ai_redteam/SKILL.md`
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
@@ -162,4 +162,5 @@ If quota runs out, resume from the **Next Step** section below.
 | 2026-05-19 | 4 — Code Review | e4f265f | 7 files: SAST skill, prompt, agent, semgrep/bandit/trufflehog wrappers, report template |
 | 2026-05-19 | 5 — Crawler | a41c53f | 8 files: BFS crawler, form_detector (all editor types), payload_injector, monitor, auth_handler, rich_text_handler, evidence_collector |
 | 2026-05-19 | 6 — Bug Bounty | 7619f61 | 24 files: skill, prompt, agent (XSS pipeline), 9 tool wrappers, 9 payload knowledge JSONs, report template |
-| 2026-05-20 | 7 — Pentest | (pending) | 11 files: black/white box skills, prompt, agent, hydra/searchsploit/impacket/linpeas/shodan wrappers, reverse_shells, report template |
+| 2026-05-20 | 7 — Pentest | 9a6f9ca | 11 files: black/white box skills, prompt, agent, hydra/searchsploit/impacket/linpeas/shodan wrappers, reverse_shells, report template |
+| 2026-05-20 | 8 — Red Team | (pending) | 6 files: ATT&CK skill, prompt, agent (APT sim + detection gap analysis), bloodhound, crackmapexec, report template |
