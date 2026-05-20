@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 9 — AI Red Team + Voice Red Team
+**Phase:** 10 — Orchestrator + CLI + Tests
 **Status:** COMPLETE
 **Last Updated:** 2026-05-20
 **Last Commit:** (see below)
@@ -127,36 +127,34 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `templates/ai_redteam_report.md.j2`
 - [x] `templates/voice_redteam_report.md.j2`
 
-### Phase 10 — Orchestrator + CLI + Reports ⏳
-- [ ] `main.py`
-- [ ] `orchestrator.py`
-- [ ] `prompts/orchestrator.md`
-- [ ] `tests/test_tool_wrappers.py`
-- [ ] `tests/test_agents.py`
+### Phase 10 — Orchestrator + CLI + Reports ✅
+- [x] `main.py`
+- [x] `orchestrator.py`
+- [x] `prompts/orchestrator.md`
+- [x] `tests/test_tool_wrappers.py`
+- [x] `tests/test_agents.py`
+- [x] `tests/fixtures/nmap/sample_output.txt`
+- [x] `tests/fixtures/nuclei/sample_output.txt`
+- [x] `tests/fixtures/semgrep/sample_output.json`
+- [x] `tests/fixtures/bandit/sample_output.json`
 
 ---
 
 ## Next Step
 
-**Resume from:** Phase 10 — Orchestrator + CLI + Reports
+**ALL PHASES COMPLETE — ARGUS v1.0 BUILD FINISHED**
 
-**Files to build:**
-1. `main.py` — ARGUS banner, interactive menu (options 1-7 + 0 exit), session init, agent dispatch
-2. `orchestrator.py` — routes menu selection to correct agent, manages session lifecycle, triggers report generation
-3. `prompts/orchestrator.md` — orchestrator system prompt for meta-reasoning across agent outputs
-4. `tests/test_tool_wrappers.py` — unit tests for all tool wrappers using fixture files
-5. `tests/test_agents.py` — integration tests for agent run() methods
-6. `tests/fixtures/` — sample outputs for each tool wrapper
+To run ARGUS:
+```bash
+cd /opt/Legion_Sec/argus
+cp .env.example .env  # add your ANTHROPIC_API_KEY
+python main.py
+```
 
-**Context for resuming:**
-- Working directory: `/opt/Legion_Sec/argus`
-- Git branch: `main`
-- Phases 1-9 all committed (see build log)
-- All 7 agents built: pentest, bug_bounty, red_team, ai_redteam, voice_redteam, threat_model, code_review
-- BaseAgent in `agents/base_agent.py` provides ReAct loop
-- Finding schema in `shared/reporter.py`
-- Models: Haiku (parse), Sonnet (reason), Opus (deep/adversarial)
-- ARGUS banner/menu design in plan: `/home/sandy/.claude/plans/mellow-seeking-sunset.md`
+To run tests:
+```bash
+pytest tests/ -v
+```
 
 ---
 
@@ -172,4 +170,5 @@ If quota runs out, resume from the **Next Step** section below.
 | 2026-05-19 | 6 — Bug Bounty | 7619f61 | 24 files: skill, prompt, agent (XSS pipeline), 9 tool wrappers, 9 payload knowledge JSONs, report template |
 | 2026-05-20 | 7 — Pentest | 9a6f9ca | 11 files: black/white box skills, prompt, agent, hydra/searchsploit/impacket/linpeas/shodan wrappers, reverse_shells, report template |
 | 2026-05-20 | 8 — Red Team | (pending) | 6 files: ATT&CK skill, prompt, agent (APT sim + detection gap analysis), bloodhound, crackmapexec, report template |
-| 2026-05-20 | 9 — AI Red Team + Voice | (pending) | 10 files: ai_redteam + voice_redteam skills/prompts/agents, voicetest_client, voice_attack_scenarios, 2 report templates |
+| 2026-05-20 | 9 — AI Red Team + Voice | 4ff3ae2 | 10 files: ai_redteam + voice_redteam skills/prompts/agents, voicetest_client, voice_attack_scenarios, 2 report templates |
+| 2026-05-20 | 10 — Orchestrator + CLI | (pending) | 7 files: main.py, orchestrator.py, prompts/orchestrator.md, 2 test files, 4 fixture files |

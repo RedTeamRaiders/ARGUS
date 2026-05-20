@@ -1,0 +1,7 @@
+[2024-01-15 14:23:01] [http-missing-security-headers:x-frame-options] [http] [info] https://example.com
+[2024-01-15 14:23:02] [http-missing-security-headers:content-security-policy] [http] [info] https://example.com
+[2024-01-15 14:23:05] [CVE-2021-41773] [http] [critical] https://example.com/cgi-bin/test.cgi
+[2024-01-15 14:23:08] [default-login:tomcat] [http] [medium] https://example.com:8080/manager/html ["tomcat":"tomcat"]
+[2024-01-15 14:23:12] [exposed-panels:phpinfo] [http] [medium] https://example.com/phpinfo.php
+[2024-01-15 14:23:15] [ssl-issuer] [ssl] [info] https://example.com
+[2024-01-15 14:23:18] [waf-detect:cloudflare] [http] [info] https://example.com

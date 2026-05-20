@@ -1,0 +1,17 @@
+# Nmap 7.94 scan report for example.com (93.184.216.34)
+Host is up (0.012s latency).
+
+PORT    STATE SERVICE  VERSION
+22/tcp  open  ssh      OpenSSH 8.2p1 Ubuntu 4ubuntu0.5 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   3072 fa:aa:bb:cc:dd:ee:ff:00:11:22:33:44 (RSA)
+80/tcp  open  http     nginx 1.18.0
+|_http-title: Example Domain
+443/tcp open  ssl/http nginx 1.18.0
+|_http-title: Example Domain
+| ssl-cert: Subject: commonName=example.com
+| Issuer: C=US; O=DigiCert Inc; CN=DigiCert TLS RSA SHA256 2020 CA1
+3306/tcp closed mysql
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 12.34 seconds

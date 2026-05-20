@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions",
+      "filename": "app/db.py",
+      "line_number": 23,
+      "line_range": [23, 23],
+      "code": "query = \"SELECT * FROM users WHERE username='\" + username + \"'\"",
+      "issue_text": "Possible SQL injection via string-based query construction",
+      "issue_severity": "HIGH",
+      "issue_confidence": "MEDIUM",
+      "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b608_hardcoded_sql_expressions.html"
+    },
+    {
+      "test_id": "B106",
+      "test_name": "hardcoded_password_funcarg",
+      "filename": "app/config.py",
+      "line_number": 8,
+      "line_range": [8, 8],
+      "code": "db_password = 'admin123'",
+      "issue_text": "Possible hardcoded password: 'admin123'",
+      "issue_severity": "LOW",
+      "issue_confidence": "MEDIUM",
+      "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b106_hardcoded_password_funcarg.html"
+    }
+  ],
+  "errors": []
+}

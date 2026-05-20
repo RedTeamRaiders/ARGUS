@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "check_id": "python.django.security.injection.tainted-sql-string.tainted-sql-string",
+      "path": "app/views.py",
+      "start": {"line": 42, "col": 12},
+      "end": {"line": 42, "col": 60},
+      "extra": {
+        "message": "Detected user-controlled data used directly in a SQL query. This is vulnerable to SQL injection.",
+        "severity": "ERROR",
+        "metadata": {
+          "cwe": ["CWE-89: SQL Injection"],
+          "owasp": ["A03:2021 - Injection"],
+          "references": ["https://owasp.org/www-community/attacks/SQL_Injection"]
+        },
+        "lines": "cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)"
+      }
+    },
+    {
+      "check_id": "python.flask.security.xss.direct-use-of-jinja2.direct-use-of-jinja2",
+      "path": "app/templates/search.html",
+      "start": {"line": 15, "col": 8},
+      "end": {"line": 15, "col": 40},
+      "extra": {
+        "message": "Potential XSS: Jinja2 autoescape disabled and user input rendered directly.",
+        "severity": "WARNING",
+        "metadata": {
+          "cwe": ["CWE-79: Cross-site Scripting"],
+          "owasp": ["A03:2021 - Injection"]
+        },
+        "lines": "{{ request.args.get('q') | safe }}"
+      }
+    }
+  ],
+  "errors": []
+}
