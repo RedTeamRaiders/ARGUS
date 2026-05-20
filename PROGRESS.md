@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 4 — Code Review Agent
+**Phase:** 5 — ARGUS Crawler
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
 **Last Commit:** (see below)
@@ -59,15 +59,15 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `tool_wrappers/trufflehog.py`
 - [x] `templates/code_review_report.md.j2`
 
-### Phase 5 — ARGUS Crawler (Playwright) ⏳
-- [ ] `tool_wrappers/argus_crawler/__init__.py`
-- [ ] `tool_wrappers/argus_crawler/crawler.py`
-- [ ] `tool_wrappers/argus_crawler/form_detector.py`
-- [ ] `tool_wrappers/argus_crawler/payload_injector.py`
-- [ ] `tool_wrappers/argus_crawler/monitor.py`
-- [ ] `tool_wrappers/argus_crawler/auth_handler.py`
-- [ ] `tool_wrappers/argus_crawler/rich_text_handler.py`
-- [ ] `tool_wrappers/argus_crawler/evidence_collector.py`
+### Phase 5 — ARGUS Crawler (Playwright) ✅
+- [x] `tool_wrappers/argus_crawler/__init__.py`
+- [x] `tool_wrappers/argus_crawler/crawler.py`
+- [x] `tool_wrappers/argus_crawler/form_detector.py`
+- [x] `tool_wrappers/argus_crawler/payload_injector.py`
+- [x] `tool_wrappers/argus_crawler/monitor.py`
+- [x] `tool_wrappers/argus_crawler/auth_handler.py`
+- [x] `tool_wrappers/argus_crawler/rich_text_handler.py`
+- [x] `tool_wrappers/argus_crawler/evidence_collector.py`
 
 ### Phase 6 — Bug Bounty Agent ⏳
 - [ ] `skills/bug_bounty/SKILL.md`
@@ -139,7 +139,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 5, Step 1 — `tool_wrappers/argus_crawler/__init__.py`
+**Resume from:** Phase 6, Step 1 — `skills/bug_bounty/SKILL.md`
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
@@ -160,4 +160,5 @@ If quota runs out, resume from the **Next Step** section below.
 | 2026-05-19 | 1 — Scaffold | d627fbe | 13 files: scaffold, config, CLAUDE.md hierarchy, MCP config, dev skills |
 | 2026-05-19 | 2 — Core Engine | 1a4a90d | 7 files: logger, session, auth_gate, reporter, tools, base_agent (ReAct loop) |
 | 2026-05-19 | 3 — Threat Model | 3997800 | 8 files: mitre JSONs, STRIDE/AI skills, threat_model prompt, agent, report template |
-| 2026-05-19 | 4 — Code Review | (pending) | 7 files: SAST skill, prompt, agent, semgrep/bandit/trufflehog wrappers, report template |
+| 2026-05-19 | 4 — Code Review | e4f265f | 7 files: SAST skill, prompt, agent, semgrep/bandit/trufflehog wrappers, report template |
+| 2026-05-19 | 5 — Crawler | (pending) | 8 files: BFS crawler, form_detector (all editor types), payload_injector, monitor, auth_handler, rich_text_handler, evidence_collector |
