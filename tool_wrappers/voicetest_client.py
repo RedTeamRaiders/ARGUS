@@ -40,7 +40,7 @@ async def run_test(
         return {}
 
     if not api_key:
-        audit.warn(TOOL, "No voicetest.dev API key provided — running in simulation mode")
+        audit.info(TOOL, "No voicetest.dev API key provided — running in simulation mode")
         return _simulate_test(target, scenario, attack_type, payload)
 
     audit.tool_call(TOOL, "run_test", {

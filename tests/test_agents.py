@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
 from shared.reporter import Finding, Severity, Confidence
 from shared.session import Scope, Session
@@ -37,15 +38,12 @@ def auth_record():
     )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def session(tmp_path):
-    from config import SESSION_DB
-    # Patch SESSION_DB to use a temp file
     with patch("shared.session.DB_PATH", tmp_path / "test_sessions.db"):
-        with patch("config.SESSION_DB", tmp_path / "test_sessions.db"):
-            s = await Session.create("example.com", Scope(["example.com"]), "test")
-            yield s
-            await s.close()
+        s = await Session.create("example.com", Scope(["example.com"]), "test")
+        yield s
+        await s.close()
 
 
 # ── Finding Schema Tests ───────────────────────────────────────────────────

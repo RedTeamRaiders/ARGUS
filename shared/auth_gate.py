@@ -25,6 +25,19 @@ class AuthorizationError(Exception):
     """Raised when authorization is not granted or scope is invalid."""
 
 
+class AuthGate:
+    """Scope enforcement gate called inside agent run() methods."""
+
+    @staticmethod
+    def require(scope, target: str) -> None:
+        """Raise AuthorizationError if target is out of scope."""
+        from shared.session import Scope as _Scope
+        if isinstance(scope, dict):
+            scope = _Scope.from_dict(scope)
+        if not scope.contains(target):
+            raise AuthorizationError(f"Target {target!r} is out of scope for this engagement.")
+
+
 @dataclass
 class AuthRecord:
     """Immutable record of operator authorization — attached to every session."""
