@@ -1,0 +1,42 @@
+# Environment & secrets
+.env
+.claude/settings.local.json
+
+# Session data
+data/sessions.db
+data/*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Reports (generated output — not source)
+reports/
+*.pdf
+*.html
+
+# Playwright
+playwright-report/
+test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

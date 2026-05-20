@@ -1,0 +1,69 @@
+{
+  "mcpServers": {
+    "hexstrike": {
+      "command": "python",
+      "args": ["-m", "hexstrike_mcp"],
+      "env": {}
+    },
+    "metasploit": {
+      "command": "python",
+      "args": ["-m", "metasploit_mcp"],
+      "env": {
+        "MSF_RPC_HOST": "${MSF_RPC_HOST}",
+        "MSF_RPC_PORT": "${MSF_RPC_PORT}",
+        "MSF_RPC_PASS": "${MSF_RPC_PASS}"
+      }
+    },
+    "osint": {
+      "command": "python",
+      "args": ["-m", "osint_mcp_server"],
+      "env": {
+        "SHODAN_API_KEY": "${SHODAN_API_KEY}",
+        "VIRUSTOTAL_API_KEY": "${VIRUSTOTAL_API_KEY}",
+        "CENSYS_API_ID": "${CENSYS_API_ID}",
+        "CENSYS_API_SECRET": "${CENSYS_API_SECRET}",
+        "SECURITYTRAILS_API_KEY": "${SECURITYTRAILS_API_KEY}"
+      }
+    },
+    "cve": {
+      "command": "python",
+      "args": ["-m", "cve_mcp_server"],
+      "env": {
+        "VIRUSTOTAL_API_KEY": "${VIRUSTOTAL_API_KEY}",
+        "SHODAN_API_KEY": "${SHODAN_API_KEY}"
+      }
+    },
+    "bloodhound": {
+      "command": "python",
+      "args": ["-m", "bloodhound_mcp"],
+      "env": {
+        "NEO4J_URI": "${NEO4J_URI}",
+        "NEO4J_USER": "${NEO4J_USER}",
+        "NEO4J_PASS": "${NEO4J_PASS}"
+      }
+    },
+    "zap": {
+      "command": "python",
+      "args": ["-m", "zap_mcp"],
+      "env": {
+        "ZAP_API_KEY": "${ZAP_API_KEY}",
+        "ZAP_HOST": "${ZAP_HOST}",
+        "ZAP_PORT": "${ZAP_PORT}"
+      }
+    },
+    "semgrep": {
+      "command": "python",
+      "args": ["-m", "semgrep_mcp"]
+    },
+    "bugbounty": {
+      "command": "python",
+      "args": ["-m", "bugbounty_mcp_server"],
+      "env": {
+        "SHODAN_API_KEY": "${SHODAN_API_KEY}",
+        "VIRUSTOTAL_API_KEY": "${VIRUSTOTAL_API_KEY}",
+        "CENSYS_API_ID": "${CENSYS_API_ID}",
+        "CENSYS_API_SECRET": "${CENSYS_API_SECRET}"
+      }
+    }
+  }
+}
