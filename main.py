@@ -13,11 +13,11 @@ console = Console()
 
 ARGUS_BANNER = r"""
 [bold cyan]
-    ___    ____  ____  __  _______
-   /   |  / __ \/ __ \/ / / / ___/
-  / /| | / /_/ / / / / / / /\__ \
+    ___    ____  ________  _______
+   /   |  / __ \/ ____/ / / / ___/
+  / /| | / /_/ / / __/ / / /\__ \
  / ___ |/ _, _/ /_/ / /_/ /___/ /
-/_/  |_/_/ |_|_____/\____//____/
+/_/  |_/_/ |_|\____/\____//____/
 [/bold cyan][dim]
 Autonomous Reconnaissance & General-purpose Universal Security System
 Version 1.0 — RedTeamRaiders/ARGUS
