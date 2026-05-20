@@ -7,9 +7,9 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 8 — Red Team Agent
+**Phase:** 9 — AI Red Team + Voice Red Team
 **Status:** COMPLETE
-**Last Updated:** 2026-05-19
+**Last Updated:** 2026-05-20
 **Last Commit:** (see below)
 
 ---
@@ -115,17 +115,17 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `tool_wrappers/crackmapexec.py`
 - [x] `templates/red_team_report.md.j2`
 
-### Phase 9 — AI Red Team + Voice ⏳
-- [ ] `skills/ai_redteam/SKILL.md`
-- [ ] `skills/voice_redteam/SKILL.md`
-- [ ] `prompts/ai_redteam.md`
-- [ ] `prompts/voice_redteam.md`
-- [ ] `agents/ai_redteam.py`
-- [ ] `agents/voice_redteam.py`
-- [ ] `tool_wrappers/voicetest_client.py`
-- [ ] `data/voice_attack_scenarios.json`
-- [ ] `templates/ai_redteam_report.md.j2`
-- [ ] `templates/voice_redteam_report.md.j2`
+### Phase 9 — AI Red Team + Voice ✅
+- [x] `skills/ai_redteam/SKILL.md`
+- [x] `skills/voice_redteam/SKILL.md`
+- [x] `prompts/ai_redteam.md`
+- [x] `prompts/voice_redteam.md`
+- [x] `agents/ai_redteam.py`
+- [x] `agents/voice_redteam.py`
+- [x] `tool_wrappers/voicetest_client.py`
+- [x] `data/voice_attack_scenarios.json`
+- [x] `templates/ai_redteam_report.md.j2`
+- [x] `templates/voice_redteam_report.md.j2`
 
 ### Phase 10 — Orchestrator + CLI + Reports ⏳
 - [ ] `main.py`
@@ -138,17 +138,25 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 9, Step 1 — `skills/ai_redteam/SKILL.md`
+**Resume from:** Phase 10 — Orchestrator + CLI + Reports
+
+**Files to build:**
+1. `main.py` — ARGUS banner, interactive menu (options 1-7 + 0 exit), session init, agent dispatch
+2. `orchestrator.py` — routes menu selection to correct agent, manages session lifecycle, triggers report generation
+3. `prompts/orchestrator.md` — orchestrator system prompt for meta-reasoning across agent outputs
+4. `tests/test_tool_wrappers.py` — unit tests for all tool wrappers using fixture files
+5. `tests/test_agents.py` — integration tests for agent run() methods
+6. `tests/fixtures/` — sample outputs for each tool wrapper
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
 - Git branch: `main`
-- Phase 1 + 2 + 3 committed (see build log)
-- Phase 3 adds: MITRE data JSONs, STRIDE/AI skill files, threat_model prompt, ThreatModelAgent (Opus for STRIDE + AI threats), Jinja2 report template
-- ThreatModelAgent phases: _identify_assets → _run_stride (Opus) → _build_attack_trees → _analyze_ai_threats (Opus) → _score_threats → _generate_recommendations
-- Phase 4 (code_review) needs: SKILL.md, prompt, agent, semgrep/bandit/trufflehog wrappers, report template
+- Phases 1-9 all committed (see build log)
+- All 7 agents built: pentest, bug_bounty, red_team, ai_redteam, voice_redteam, threat_model, code_review
+- BaseAgent in `agents/base_agent.py` provides ReAct loop
+- Finding schema in `shared/reporter.py`
 - Models: Haiku (parse), Sonnet (reason), Opus (deep/adversarial)
-- See plan: `/home/sandy/.claude/plans/mellow-seeking-sunset.md`
+- ARGUS banner/menu design in plan: `/home/sandy/.claude/plans/mellow-seeking-sunset.md`
 
 ---
 
@@ -164,3 +172,4 @@ If quota runs out, resume from the **Next Step** section below.
 | 2026-05-19 | 6 — Bug Bounty | 7619f61 | 24 files: skill, prompt, agent (XSS pipeline), 9 tool wrappers, 9 payload knowledge JSONs, report template |
 | 2026-05-20 | 7 — Pentest | 9a6f9ca | 11 files: black/white box skills, prompt, agent, hydra/searchsploit/impacket/linpeas/shodan wrappers, reverse_shells, report template |
 | 2026-05-20 | 8 — Red Team | (pending) | 6 files: ATT&CK skill, prompt, agent (APT sim + detection gap analysis), bloodhound, crackmapexec, report template |
+| 2026-05-20 | 9 — AI Red Team + Voice | (pending) | 10 files: ai_redteam + voice_redteam skills/prompts/agents, voicetest_client, voice_attack_scenarios, 2 report templates |

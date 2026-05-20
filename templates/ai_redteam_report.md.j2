@@ -1,0 +1,194 @@
+# ARGUS AI Red Team Report
+**Target System:** {{ target }}
+**Assessment Date:** {{ generated_at }}
+**Classification:** CONFIDENTIAL — AUTHORIZED PERSONNEL ONLY
+
+---
+
+## Executive Summary
+
+| Metric | Result |
+|--------|--------|
+| OWASP LLM Categories Tested | {{ owasp_coverage | length if owasp_coverage else "N/A" }} |
+| Total Findings | {{ findings | length }} |
+| Critical | {{ findings | selectattr("severity.value", "equalto", "Critical") | list | length }} |
+| High | {{ findings | selectattr("severity.value", "equalto", "High") | list | length }} |
+| Medium | {{ findings | selectattr("severity.value", "equalto", "Medium") | list | length }} |
+| Total Probes Sent | {{ total_probes | default("N/A") }} |
+| Successful Exploits | {{ successful_probes | default("N/A") }} |
+
+### AI System Profile
+
+| Property | Value |
+|----------|-------|
+| Model | {{ profile.model if profile else "Unknown" }} |
+| Tools Available | {{ profile.tools | join(", ") if profile and profile.tools else "None detected" }} |
+| Data Access | {{ profile.data_access | join(", ") if profile and profile.data_access else "Unknown" }} |
+| RAG Enabled | {{ "Yes" if profile and profile.rag_enabled else "No" }} |
+| Multi-Agent | {{ "Yes" if profile and profile.multi_agent else "No" }} |
+| Human Oversight | {{ "Yes" if profile and profile.human_oversight else "No — HIGH RISK" }} |
+
+---
+
+## OWASP LLM Top 10 Coverage
+
+| ID | Vulnerability | Tested | Findings |
+|----|---------------|--------|---------|
+| LLM01 | Prompt Injection | {{ "✓" if "LLM01" in (owasp_coverage or []) else "–" }} | {{ findings | selectattr("owasp", "containing", "LLM01") | list | length }} |
+| LLM02 | Sensitive Information Disclosure | {{ "✓" if "LLM02" in (owasp_coverage or []) else "–" }} | {{ findings | selectattr("owasp", "containing", "LLM02") | list | length }} |
+| LLM04 | Data and Model Poisoning | {{ "✓" if "LLM04" in (owasp_coverage or []) else "–" }} | {{ findings | selectattr("owasp", "containing", "LLM04") | list | length }} |
+| LLM06 | Excessive Agency | {{ "✓" if "LLM06" in (owasp_coverage or []) else "–" }} | {{ findings | selectattr("owasp", "containing", "LLM06") | list | length }} |
+| LLM07 | System Prompt Leakage | {{ "✓" if "LLM07" in (owasp_coverage or []) else "–" }} | {{ findings | selectattr("owasp", "containing", "LLM07") | list | length }} |
+
+---
+
+## Critical Findings
+
+{% set critical = findings | selectattr("severity.value", "equalto", "Critical") | list %}
+{% if critical %}
+{% for f in critical %}
+### {{ loop.index }}. {{ f.title }}
+
+**Severity:** Critical
+**OWASP LLM:** {{ f.owasp | join(", ") if f.owasp else "N/A" }}
+**MITRE ATLAS:** {{ f.mitre_atlas | join(", ") if f.mitre_atlas else "N/A" }}
+**Confidence:** {{ f.confidence }}
+
+**Attack Input:**
+```
+{{ f.poc | truncate(500) if f.poc else "See evidence" }}
+```
+
+**Model Response (verbatim excerpt):**
+```
+{{ f.observed | truncate(600) if f.observed else "See evidence" }}
+```
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% else %}
+*No Critical findings identified.*
+{% endif %}
+
+---
+
+## High Findings
+
+{% set high = findings | selectattr("severity.value", "equalto", "High") | list %}
+{% if high %}
+{% for f in high %}
+### {{ loop.index }}. {{ f.title }}
+
+**Severity:** High | **OWASP:** {{ f.owasp | join(", ") if f.owasp else "N/A" }} | **ATLAS:** {{ f.mitre_atlas | join(", ") if f.mitre_atlas else "N/A" }} | **Confidence:** {{ f.confidence }}
+
+**Attack Input:**
+```
+{{ f.poc | truncate(300) if f.poc else "See evidence" }}
+```
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% else %}
+*No High findings identified.*
+{% endif %}
+
+---
+
+## Medium / Low Findings
+
+{% set medium_low = (findings | selectattr("severity.value", "equalto", "Medium") | list) + (findings | selectattr("severity.value", "equalto", "Low") | list) %}
+{% if medium_low %}
+| Severity | Title | OWASP | Impact |
+|----------|-------|-------|--------|
+{% for f in medium_low %}
+| {{ f.severity.value }} | {{ f.title | truncate(60) }} | {{ f.owasp | join(", ") if f.owasp else "N/A" }} | {{ f.impact | truncate(80) if f.impact else "N/A" }} |
+{% endfor %}
+{% else %}
+*No Medium/Low findings.*
+{% endif %}
+
+---
+
+## Attack Chains
+
+{% set chains = findings | selectattr("chain_id", "defined") | list %}
+{% if chains %}
+{% for chain in chains %}
+### Chain: {{ chain.title }}
+
+**Severity:** {{ chain.severity.value }}
+
+**Steps:**
+{{ chain.observed }}
+
+**Combined Impact:** {{ chain.impact }}
+
+---
+{% endfor %}
+{% else %}
+*No multi-step attack chains identified.*
+{% endif %}
+
+---
+
+## Probe Results Summary
+
+| Probe Category | Attempts | Succeeded | Success Rate |
+|----------------|----------|-----------|--------------|
+{% for cat, stats in (probe_stats or {}).items() %}
+| {{ cat | replace("_", " ") | title }} | {{ stats.attempts }} | {{ stats.succeeded }} | {{ "%.0f%%" | format(stats.succeeded / stats.attempts * 100) if stats.attempts > 0 else "0%" }} |
+{% endfor %}
+
+---
+
+## MITRE ATLAS Techniques Used
+
+| Technique | Tactic | Finding |
+|-----------|--------|---------|
+{% for f in findings %}
+{% for ttp in (f.mitre_atlas or []) %}
+| {{ ttp }} | AI/ML Adversarial | {{ f.title | truncate(60) }} |
+{% endfor %}
+{% endfor %}
+
+---
+
+## Remediation Priority
+
+### Immediate (within 7 days)
+
+1. Implement prompt hardening — validate all user inputs against adversarial injection patterns before passing to LLM
+2. Add a secondary LLM-based output validator to detect policy violations before returning responses
+3. Remove all secrets, API keys, and sensitive configuration from system prompts
+4. Implement tool call rate limiting and audit logging for all AI-triggered actions
+5. Add human-in-the-loop confirmation for all irreversible actions (payments, emails, deletions)
+
+### Short-term (within 30 days)
+
+{% if findings %}
+{% for f in (findings | selectattr("severity.value", "in", ["Critical", "High"]) | list)[:5] %}
+- **{{ f.title | truncate(60) }}**: {{ f.remediation | truncate(120) }}
+{% endfor %}
+{% else %}
+- Review all AI action boundaries and enforce least-privilege tool access
+{% endif %}
+
+### Architectural
+
+- Implement defense-in-depth: input validation → system prompt hardening → output filtering → action confirmation → audit logging
+- Deploy behavioral anomaly detection for AI interaction patterns
+- Run regular red team exercises against OWASP LLM Top 10 as AI system evolves
+- Establish AI incident response playbook
+
+---
+
+*Report generated by ARGUS — Autonomous Reconnaissance & General-purpose Universal Security System*
+*Framework: OWASP LLM Top 10 (2025) | MITRE ATLAS v4.5 | Agentic AI Top 10*

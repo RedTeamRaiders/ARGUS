@@ -1,0 +1,201 @@
+# ARGUS Voice Red Team Report
+**Target System:** {{ target }}
+**Assessment Date:** {{ generated_at }}
+**Classification:** CONFIDENTIAL — AUTHORIZED PERSONNEL ONLY
+
+---
+
+## Executive Summary
+
+| Metric | Result |
+|--------|--------|
+| Target Type | {{ profile.target_type | replace("_", " ") | title if profile else "Unknown" }} |
+| Target Endpoint | {{ profile.target_number if profile else "N/A" }} |
+| Total Findings | {{ findings | length }} |
+| Critical | {{ findings | selectattr("severity.value", "equalto", "Critical") | list | length }} |
+| High | {{ findings | selectattr("severity.value", "equalto", "High") | list | length }} |
+| Medium | {{ findings | selectattr("severity.value", "equalto", "Medium") | list | length }} |
+| Voice Auth Tested | {{ "Yes" if profile and profile.voice_auth else "No" }} |
+| Acoustic Tests | {{ "Yes (authorized)" if acoustic_tested else "No" }} |
+
+### Voice System Profile
+
+| Property | Value |
+|----------|-------|
+| System Type | {{ profile.target_type | replace("_", " ") | title if profile else "Unknown" }} |
+| ASR Engine | {{ profile.asr_engine if profile else "Unknown" }} |
+| NLU Type | {{ profile.nlu_type if profile else "Unknown" }} |
+| Voice Authentication | {{ "Enabled" if profile and profile.voice_auth else "Not detected" }} |
+| Payment Processing | {{ "Enabled — HIGH RISK" if profile and profile.payment_enabled else "Not detected" }} |
+| PII Access | {{ "Yes" if profile and profile.pii_access else "Not detected" }} |
+| Wake Word | {{ profile.wake_word if profile and profile.wake_word else "N/A" }} |
+| DTMF Enabled | {{ "Yes" if profile and profile.dtmf_enabled else "No" }} |
+
+---
+
+## Critical Findings
+
+{% set critical = findings | selectattr("severity.value", "equalto", "Critical") | list %}
+{% if critical %}
+{% for f in critical %}
+### {{ loop.index }}. {{ f.title }}
+
+**Severity:** Critical | **Confidence:** {{ f.confidence }}
+
+#### Evidence — Three-Field Voice Finding
+
+{% if f.evidence %}
+{% set ev = f.evidence | fromjson %}
+**What the attacker said:**
+```
+{{ ev.what_attacker_said | default("Not recorded") | truncate(400) }}
+```
+
+**What the system heard (ASR transcript):**
+```
+{{ ev.what_system_heard | default("Not recorded") | truncate(300) }}
+```
+
+**What the system did (action taken):**
+```
+{{ ev.what_system_did | default("Not recorded") | truncate(200) }}
+```
+{% else %}
+*Evidence not available.*
+{% endif %}
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% else %}
+*No Critical findings identified.*
+{% endif %}
+
+---
+
+## High Findings
+
+{% set high = findings | selectattr("severity.value", "equalto", "High") | list %}
+{% if high %}
+{% for f in high %}
+### {{ loop.index }}. {{ f.title }}
+
+**Severity:** High | **Confidence:** {{ f.confidence }}
+
+{% if f.evidence %}
+{% set ev = f.evidence | fromjson %}
+| Field | Content |
+|-------|---------|
+| Attacker said | {{ ev.what_attacker_said | default("N/A") | truncate(200) }} |
+| System heard | {{ ev.what_system_heard | default("N/A") | truncate(150) }} |
+| System did | {{ ev.what_system_did | default("N/A") | truncate(150) }} |
+{% endif %}
+
+**Impact:** {{ f.impact }}
+
+**Remediation:** {{ f.remediation }}
+
+---
+{% endfor %}
+{% else %}
+*No High findings identified.*
+{% endif %}
+
+---
+
+## Medium / Low Findings
+
+{% set medium_low = (findings | selectattr("severity.value", "equalto", "Medium") | list) + (findings | selectattr("severity.value", "equalto", "Low") | list) %}
+{% if medium_low %}
+| Severity | Finding | Attack Category | Impact |
+|----------|---------|----------------|--------|
+{% for f in medium_low %}
+| {{ f.severity.value }} | {{ f.title | truncate(60) }} | {{ f.description | truncate(60) if f.description else "N/A" }} | {{ f.impact | truncate(80) if f.impact else "N/A" }} |
+{% endfor %}
+{% else %}
+*No Medium/Low findings.*
+{% endif %}
+
+---
+
+## Attack Chain Analysis
+
+{% set chains = findings | selectattr("chain_id", "defined") | list %}
+{% if chains %}
+{% for chain in chains %}
+### Chain: {{ chain.title }}
+
+**Severity:** {{ chain.severity.value }}
+
+**Attack Steps:**
+{{ chain.observed }}
+
+**Combined Impact:** {{ chain.impact }}
+
+**Remediation:** {{ chain.remediation }}
+
+---
+{% endfor %}
+{% else %}
+*No multi-step attack chains identified.*
+{% endif %}
+
+---
+
+## Testing Coverage
+
+| Attack Category | Tested | Findings |
+|----------------|--------|---------|
+| IVR / DTMF Bypass | {{ "✓" if "ivr" in (tested_categories or []) else "–" }} | {{ probe_results | selectattr("attack_category", "equalto", "ivr") | selectattr("succeeded") | list | length if probe_results else 0 }} |
+| Voice Biometric Bypass | {{ "✓" if "biometric" in (tested_categories or []) else "–" }} | {{ probe_results | selectattr("attack_category", "equalto", "biometric") | selectattr("succeeded") | list | length if probe_results else 0 }} |
+| Social Engineering | {{ "✓" if "social_engineering" in (tested_categories or []) else "–" }} | {{ probe_results | selectattr("attack_category", "equalto", "social_engineering") | selectattr("succeeded") | list | length if probe_results else 0 }} |
+| AI/LLM via Voice | {{ "✓" if "ai_llm" in (tested_categories or []) else "–" }} | {{ probe_results | selectattr("attack_category", "equalto", "ai_llm") | selectattr("succeeded") | list | length if probe_results else 0 }} |
+| Acoustic Attacks | {{ "✓ (authorized)" if acoustic_tested else "Not authorized" }} | {{ probe_results | selectattr("attack_category", "equalto", "acoustic") | selectattr("succeeded") | list | length if probe_results else 0 }} |
+
+---
+
+## Remediation Roadmap
+
+### Immediate Actions (within 7 days)
+
+{% if findings | selectattr("severity.value", "equalto", "Critical") | list %}
+**CRITICAL — Voice Authentication Bypass:**
+- Implement multi-factor authentication alongside voice biometrics
+- Add liveness detection to voice authentication flow
+- Monitor for replay attack patterns (repeated audio fingerprints)
+- Disable voice-only authentication for high-value actions (payments, account transfers)
+{% endif %}
+
+### Short-term (within 30 days)
+
+1. **IVR Hardening**: Audit all DTMF sequences; remove undocumented maintenance menus; require PIN for admin functions
+2. **Prompt Injection via Voice**: Sanitize ASR transcripts before passing to LLM; add output content filtering
+3. **Social Engineering**: Train AI to require multi-factor confirmation for high-impact requests; reject unverifiable authorization claims
+4. **Biometric Liveness**: Implement liveness detection (challenge-response, audio freshness validation)
+5. **Acoustic Filtering**: Add ultrasonic frequency filtering at hardware or software level
+
+### Monitoring Recommendations
+
+- Alert on: repeated failed voice authentication attempts from same caller
+- Alert on: DTMF sequences matching known hidden menu patterns
+- Alert on: ASR transcripts containing prompt injection keywords
+- Alert on: high-value actions (payments > threshold) without multi-factor confirmation
+- Log and retain: full audio recordings for all authenticated sessions (with appropriate consent)
+
+---
+
+## Compliance Notes
+
+Voice AI systems handling authentication or payment may be subject to:
+- **PCI DSS 4.0** — if payment card data handled via voice
+- **GDPR / CCPA** — voice recordings as biometric data
+- **FTC Voice Cloning Regulations** — AI voice synthesis disclosure requirements
+- **NIST SP 800-63B** — digital identity guidelines for voice authentication
+
+---
+
+*Report generated by ARGUS — Autonomous Reconnaissance & General-purpose Universal Security System*
+*Framework: NIST Speech Recognition Security | MITRE ATLAS v4.5 | OWASP LLM Top 10 (2025)*
