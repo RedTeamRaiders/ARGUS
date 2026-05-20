@@ -27,6 +27,10 @@ reports/
 *.pdf
 *.html
 
+# Dev logs (machine-specific, not for distribution)
+PROGRESS.md
+.claude/audit.log
+
 # Playwright
 playwright-report/
 test-results/

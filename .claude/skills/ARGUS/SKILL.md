@@ -28,7 +28,7 @@ Ask: **Which module do you want to run? (1-7)**
 Once the user picks a module, ask for the required inputs listed below, then run ARGUS via the Bash tool:
 
 ```bash
-cd /opt/Legion_Sec/argus && python main.py
+python main.py
 ```
 
 ARGUS will take over with its interactive prompts.
@@ -36,7 +36,7 @@ ARGUS will take over with its interactive prompts.
 Alternatively, if the user wants to run a specific agent directly (non-interactively), collect inputs and run:
 
 ```bash
-cd /opt/Legion_Sec/argus && python -c "
+python -c "
 import asyncio
 from agents.<agent_module> import <AgentClass>
 from shared.session import Scope, Session
