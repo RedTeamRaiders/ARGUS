@@ -7,7 +7,7 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Current Status
 
-**Phase:** 2 — Core Engine
+**Phase:** 3 — Threat Model Agent
 **Status:** COMPLETE
 **Last Updated:** 2026-05-19
 **Last Commit:** (see below)
@@ -40,15 +40,15 @@ If quota runs out, resume from the **Next Step** section below.
 - [x] `agents/__init__.py`
 - [x] `agents/base_agent.py`
 
-### Phase 3 — Threat Model Agent ⏳
-- [ ] `skills/threat_model/SKILL.md`
-- [ ] `skills/threat_model_ai/SKILL.md`
-- [ ] `prompts/threat_model.md`
-- [ ] `agents/threat_model.py`
-- [ ] `templates/threat_model_report.md.j2`
-- [ ] `data/mitre_atlas.json`
-- [ ] `data/mitre_attack.json`
-- [ ] `data/owasp_llm_top10.json`
+### Phase 3 — Threat Model Agent ✅
+- [x] `skills/threat_model/SKILL.md`
+- [x] `skills/threat_model_ai/SKILL.md`
+- [x] `prompts/threat_model.md`
+- [x] `agents/threat_model.py`
+- [x] `templates/threat_model_report.md.j2`
+- [x] `data/mitre_atlas.json`
+- [x] `data/mitre_attack.json`
+- [x] `data/owasp_llm_top10.json`
 
 ### Phase 4 — Code Review Agent ⏳
 - [ ] `skills/code_review/SKILL.md`
@@ -139,17 +139,17 @@ If quota runs out, resume from the **Next Step** section below.
 
 ## Next Step
 
-**Resume from:** Phase 3, Step 1 — `data/mitre_attack.json` (fetch MITRE ATT&CK data)
+**Resume from:** Phase 4, Step 1 — `skills/code_review/SKILL.md`
 
 **Context for resuming:**
 - Working directory: `/opt/Legion_Sec/argus`
 - Git branch: `main`
-- All Phase 1 files committed (see list above)
-- Phase 2 builds: audit logger → session store → auth gate → finding schema → reporter → tool definitions → BaseAgent ReAct loop
-- BaseAgent is the most critical file — it defines the human-like Observe→Think→Act→Analyze loop that all agents extend
+- Phase 1 + 2 + 3 committed (see build log)
+- Phase 3 adds: MITRE data JSONs, STRIDE/AI skill files, threat_model prompt, ThreatModelAgent (Opus for STRIDE + AI threats), Jinja2 report template
+- ThreatModelAgent phases: _identify_assets → _run_stride (Opus) → _build_attack_trees → _analyze_ai_threats (Opus) → _score_threats → _generate_recommendations
+- Phase 4 (code_review) needs: SKILL.md, prompt, agent, semgrep/bandit/trufflehog wrappers, report template
 - Models: Haiku (parse), Sonnet (reason), Opus (deep/adversarial)
 - See plan: `/home/sandy/.claude/plans/mellow-seeking-sunset.md`
-- See memory: `/home/sandy/.claude/memory/project_argus.md`
 
 ---
 
@@ -158,4 +158,5 @@ If quota runs out, resume from the **Next Step** section below.
 | Date | Phase | Commit | Files Added |
 |---|---|---|---|
 | 2026-05-19 | 1 — Scaffold | d627fbe | 13 files: scaffold, config, CLAUDE.md hierarchy, MCP config, dev skills |
-| 2026-05-19 | 2 — Core Engine | (pending push) | 7 files: logger, session, auth_gate, reporter, tools, base_agent (ReAct loop) |
+| 2026-05-19 | 2 — Core Engine | 1a4a90d | 7 files: logger, session, auth_gate, reporter, tools, base_agent (ReAct loop) |
+| 2026-05-19 | 3 — Threat Model | (pending) | 8 files: mitre JSONs, STRIDE/AI skills, threat_model prompt, agent, report template |

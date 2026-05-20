@@ -1,0 +1,203 @@
+{
+  "version": "4.5",
+  "description": "MITRE ATLAS — Adversarial Threat Landscape for AI Systems",
+  "tactics": {
+    "AML.TA0000": {
+      "name": "ML Model Access",
+      "description": "Adversary obtains access to an ML model, its inputs, or outputs.",
+      "techniques": {
+        "AML.T0000": "ML Model Access via Physical Environment",
+        "AML.T0040": "ML Model Inference API Access",
+        "AML.T0047": "ML-Enabled Product or Service"
+      }
+    },
+    "AML.TA0001": {
+      "name": "Reconnaissance",
+      "description": "Gathering information about the target AI system.",
+      "techniques": {
+        "AML.T0000.000": "Active Scanning of ML Infrastructure",
+        "AML.T0012": "Valid Accounts",
+        "AML.T0019": "Victim ML Model Research"
+      }
+    },
+    "AML.TA0002": {
+      "name": "Resource Development",
+      "description": "Establishing resources for attacks on ML systems.",
+      "techniques": {
+        "AML.T0002": "Acquire Public ML Artifacts",
+        "AML.T0017": "Acquire ML Artifacts",
+        "AML.T0018": "Backdoor ML Model",
+        "AML.T0022": "Develop Capabilities",
+        "AML.T0043": "Craft Adversarial Data"
+      }
+    },
+    "AML.TA0003": {
+      "name": "Initial Access",
+      "description": "Gaining initial foothold into ML pipeline or system.",
+      "techniques": {
+        "AML.T0010": "ML Supply Chain Compromise",
+        "AML.T0012": "Valid Accounts",
+        "AML.T0019.000": "Spearphishing for ML Access"
+      }
+    },
+    "AML.TA0004": {
+      "name": "ML Attack Staging",
+      "description": "Preparing and staging attacks against the ML model.",
+      "techniques": {
+        "AML.T0000.001": "White-Box Attack — Full Model Access",
+        "AML.T0000.002": "Black-Box Attack — API Only",
+        "AML.T0000.003": "Gray-Box Attack — Partial Knowledge",
+        "AML.T0043": "Craft Adversarial Data",
+        "AML.T0043.000": "Manual Modification",
+        "AML.T0043.001": "Optimization-Based Attack (FGSM, PGD)",
+        "AML.T0043.002": "Generative Attack"
+      }
+    },
+    "AML.TA0005": {
+      "name": "Defense Evasion",
+      "description": "Evading ML-based defenses and detection systems.",
+      "techniques": {
+        "AML.T0015": "Evade ML Model",
+        "AML.T0015.000": "Evade Anomaly Detection",
+        "AML.T0015.001": "Evade Intrusion Detection",
+        "AML.T0015.002": "Evade Malware Detection",
+        "AML.T0015.003": "Evade Deepfake Detection",
+        "AML.T0029": "Denial of ML Service",
+        "AML.T0030": "Erode ML Model Integrity"
+      }
+    },
+    "AML.TA0006": {
+      "name": "Exfiltration",
+      "description": "Stealing ML model artifacts, training data, or predictions.",
+      "techniques": {
+        "AML.T0024": "Exfiltration via ML Inference API",
+        "AML.T0025": "Model Inversion Attack",
+        "AML.T0035": "ML Artifact Collection",
+        "AML.T0037": "Data from ML Pipeline"
+      }
+    },
+    "AML.TA0007": {
+      "name": "Impact",
+      "description": "Causing harm to the ML system or its stakeholders.",
+      "techniques": {
+        "AML.T0006": "Data Poisoning",
+        "AML.T0006.000": "Training Data Poisoning",
+        "AML.T0006.001": "Backdoor Attack via Poisoning",
+        "AML.T0020": "Evade ML Model",
+        "AML.T0029": "Denial of ML Service",
+        "AML.T0031": "Erode ML Model Integrity",
+        "AML.T0048": "Compromise ML Model"
+      }
+    }
+  },
+  "key_techniques": {
+    "AML.T0006": {
+      "name": "Data Poisoning",
+      "description": "Adversary introduces malicious data into the training dataset to manipulate model behavior.",
+      "subtypes": ["Label Flipping", "Backdoor Injection", "Feature Manipulation", "Clean-Label Attack"]
+    },
+    "AML.T0020": {
+      "name": "Evade ML Model",
+      "description": "Craft inputs that cause the ML model to produce incorrect outputs.",
+      "subtypes": ["FGSM", "PGD", "Carlini-Wagner", "Universal Adversarial Perturbation"]
+    },
+    "AML.T0024": {
+      "name": "Exfiltration via ML Inference API",
+      "description": "Extract sensitive information by querying the model inference API."
+    },
+    "AML.T0025": {
+      "name": "Model Inversion Attack",
+      "description": "Reconstruct training data or model parameters from model outputs.",
+      "risk": "PII disclosure, IP theft"
+    },
+    "AML.T0031": {
+      "name": "Erode ML Model Integrity",
+      "description": "Gradually degrade model performance through adversarial interactions."
+    },
+    "AML.T0040": {
+      "name": "ML Model Inference API Access",
+      "description": "Gain access to a model's inference API to probe, attack, or extract."
+    },
+    "AML.T0043": {
+      "name": "Craft Adversarial Data",
+      "description": "Create inputs specifically designed to cause model misclassification or harmful outputs."
+    },
+    "AML.T0048": {
+      "name": "Backdoor ML Model",
+      "description": "Insert hidden functionality triggered by specific inputs (trojan attack).",
+      "trigger_types": ["Input Pattern", "Semantic Feature", "Frequency Injection"]
+    },
+    "AML.T0051": {
+      "name": "Prompt Injection",
+      "description": "Inject adversarial instructions into LLM prompts to hijack model behavior.",
+      "variants": ["Direct Injection", "Indirect Injection via Retrieved Content", "Multi-turn Manipulation"]
+    },
+    "AML.T0054": {
+      "name": "LLM Jailbreak",
+      "description": "Override safety constraints to elicit harmful or unauthorized outputs.",
+      "variants": ["Role-play", "Token Manipulation", "Many-shot Bypass", "Adversarial Suffix"]
+    }
+  },
+  "agentic_ai_threats": {
+    "agent_auth_hijacking": {
+      "id": "ARGUS-AGT-01",
+      "name": "Agent Authorization Hijacking",
+      "description": "Attacker manipulates agent goals or authorization context to perform unauthorized actions.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-auth-control-01.md"
+    },
+    "goal_instruction_manipulation": {
+      "id": "ARGUS-AGT-03",
+      "name": "Goal and Instruction Manipulation",
+      "description": "Adversarial inputs that redirect the agent toward attacker-controlled objectives.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-goal-instruction-03.md"
+    },
+    "hallucination_exploitation": {
+      "id": "ARGUS-AGT-04",
+      "name": "Hallucination Exploitation",
+      "description": "Exploit model hallucinations to inject false data into downstream systems.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-hallucination-04.md"
+    },
+    "memory_context_manipulation": {
+      "id": "ARGUS-AGT-06",
+      "name": "Memory and Context Manipulation",
+      "description": "Poison agent memory or context window to persistently alter behavior.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-memory-context-06.md"
+    },
+    "orchestration_exploitation": {
+      "id": "ARGUS-AGT-07",
+      "name": "Multi-Agent Orchestration Exploitation",
+      "description": "Exploit trust between orchestrator and subagents to escalate privileges.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-orchestration-07.md"
+    },
+    "resource_exhaustion": {
+      "id": "ARGUS-AGT-08",
+      "name": "Resource and Service Exhaustion",
+      "description": "Trigger recursive or expensive agent loops to cause DoS.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-resource-exhaustion-8.md"
+    },
+    "knowledge_poisoning": {
+      "id": "ARGUS-AGT-10",
+      "name": "Knowledge Base Poisoning",
+      "description": "Inject malicious content into RAG knowledge base or vector store.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-knowledge-poisoning-10.md"
+    },
+    "alignment_faking": {
+      "id": "ARGUS-AGT-14",
+      "name": "Alignment Deception",
+      "description": "Model behaves safely during evaluation but deceptively in deployment.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-alignment-faking-14.md"
+    },
+    "temporal_manipulation": {
+      "id": "ARGUS-AGT-13",
+      "name": "Temporal and Time-Based Attack",
+      "description": "Exploit time-dependent logic in agent decision-making (deadlines, expiry, scheduling).",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-temporal-manipulation-timebased-attack-13.md"
+    },
+    "human_oversight_bypass": {
+      "id": "ARGUS-AGT-12",
+      "name": "Human Oversight Bypass",
+      "description": "Remove human from the decision loop to execute unauthorized high-impact actions.",
+      "source": "RedTeamRaiders/Agentic-AI-Top10-Vulnerability/agent-checker-out-of-loop-12.md"
+    }
+  }
+}

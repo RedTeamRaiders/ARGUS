@@ -1,0 +1,285 @@
+# ARGUS Threat Model Report
+**Target:** {{ result.target }}
+**Generated:** {{ generated_at }}
+**System Type:** {{ result.system_type | upper }}
+**AI Components:** {{ "Yes" if result.has_ai else "No" }}
+
+---
+
+## Executive Summary
+
+| Metric | Count |
+|--------|-------|
+| Total Threats Identified | {{ result.threats | length }} |
+| Critical | {{ result.threats | selectattr("severity", "equalto", "Critical") | list | length }} |
+| High | {{ result.threats | selectattr("severity", "equalto", "High") | list | length }} |
+| Medium | {{ result.threats | selectattr("severity", "equalto", "Medium") | list | length }} |
+| Low | {{ result.threats | selectattr("severity", "equalto", "Low") | list | length }} |
+{% if result.has_ai %}| AI-Specific Threats | {{ result.ai_threats | length }} |{% endif %}
+
+{% if result.recommendations %}
+### Top Recommendations
+{% for rec in result.recommendations %}
+{{ loop.index }}. {{ rec }}
+{% endfor %}
+{% endif %}
+
+---
+
+## System Architecture
+
+### Assets
+
+| Asset | Type | Sensitivity | Description |
+|-------|------|-------------|-------------|
+{% for asset in result.assets %}
+| {{ asset.name }} | {{ asset.type }} | {{ asset.sensitivity | upper }} | {{ asset.description }} |
+{% endfor %}
+
+### Trust Boundaries
+
+{% for boundary in result.trust_boundaries %}
+#### {{ boundary.from }} → {{ boundary.to }}
+- **Data Flows:** {{ boundary.data_flows | join(", ") if boundary.data_flows else "N/A" }}
+- **Controls:** {{ boundary.controls | join(", ") if boundary.controls else "None defined" }}
+{% endfor %}
+
+---
+
+## Threat Matrix
+
+{% set critical_threats = result.threats | selectattr("severity", "equalto", "Critical") | list %}
+{% set high_threats = result.threats | selectattr("severity", "equalto", "High") | list %}
+{% set medium_threats = result.threats | selectattr("severity", "equalto", "Medium") | list %}
+{% set low_threats = result.threats | selectattr("severity", "equalto", "Low") | list %}
+
+{% if critical_threats %}
+### Critical Threats
+
+{% for threat in critical_threats %}
+#### {{ threat.id }} — {{ threat.title }}
+| Field | Value |
+|-------|-------|
+| Component | {{ threat.component }} |
+| STRIDE Category | {{ threat.stride_cat }} |
+| DREAD Score | **{{ "%.1f" | format(threat.dread_total) }}/10** |
+| MITRE ATT&CK | {{ threat.mitre_ttps | join(", ") if threat.mitre_ttps else "N/A" }} |
+| OWASP | {{ threat.owasp if threat.owasp else "N/A" }} |
+{% if threat.is_ai_threat %}| AI Threat | Yes |{% endif %}
+
+**Description:** {{ threat.description }}
+
+**Attack Path:**
+```
+{{ threat.attack_path }}
+```
+
+**Impact:** {{ threat.impact }}
+
+**DREAD Breakdown:**
+| Factor | Score |
+|--------|-------|
+{% for factor, score in threat.dread_scores.items() %}
+| {{ factor | capitalize }} | {{ score }}/10 |
+{% endfor %}
+
+**Controls:**
+{% for control in threat.controls %}
+- {{ control }}
+{% endfor %}
+
+---
+{% endfor %}
+{% endif %}
+
+{% if high_threats %}
+### High Threats
+
+{% for threat in high_threats %}
+#### {{ threat.id }} — {{ threat.title }}
+| Field | Value |
+|-------|-------|
+| Component | {{ threat.component }} |
+| STRIDE Category | {{ threat.stride_cat }} |
+| DREAD Score | **{{ "%.1f" | format(threat.dread_total) }}/10** |
+| MITRE ATT&CK | {{ threat.mitre_ttps | join(", ") if threat.mitre_ttps else "N/A" }} |
+| OWASP | {{ threat.owasp if threat.owasp else "N/A" }} |
+{% if threat.is_ai_threat %}| AI Threat | Yes |{% endif %}
+
+**Description:** {{ threat.description }}
+
+**Attack Path:**
+```
+{{ threat.attack_path }}
+```
+
+**Impact:** {{ threat.impact }}
+
+**Controls:**
+{% for control in threat.controls %}
+- {{ control }}
+{% endfor %}
+
+---
+{% endfor %}
+{% endif %}
+
+{% if medium_threats %}
+### Medium Threats
+
+| ID | Title | Component | STRIDE | DREAD | MITRE |
+|----|-------|-----------|--------|-------|-------|
+{% for threat in medium_threats %}
+| {{ threat.id }} | {{ threat.title }} | {{ threat.component }} | {{ threat.stride_cat }} | {{ "%.1f" | format(threat.dread_total) }} | {{ threat.mitre_ttps[0] if threat.mitre_ttps else "N/A" }} |
+{% endfor %}
+
+{% for threat in medium_threats %}
+#### {{ threat.id }} — {{ threat.title }}
+
+**Description:** {{ threat.description }}
+
+**Attack Path:** {{ threat.attack_path }}
+
+**Controls:**
+{% for control in threat.controls %}
+- {{ control }}
+{% endfor %}
+
+---
+{% endfor %}
+{% endif %}
+
+{% if low_threats %}
+### Low Threats
+
+| ID | Title | Component | STRIDE | DREAD |
+|----|-------|-----------|--------|-------|
+{% for threat in low_threats %}
+| {{ threat.id }} | {{ threat.title }} | {{ threat.component }} | {{ threat.stride_cat }} | {{ "%.1f" | format(threat.dread_total) }} |
+{% endfor %}
+{% endif %}
+
+---
+
+## Attack Trees
+
+{% if result.attack_trees %}
+{% for tree in result.attack_trees %}
+### {{ tree.threat_id }} — {{ tree.goal }}
+
+```
+Goal: {{ tree.goal }}
+{% if tree.root is defined %}
+{{ tree.root.node }}
+{% for child in tree.root.children %}
+├── {{ child.node }}
+{% if child.children is defined %}
+{% for grandchild in child.children %}
+│   └── {{ grandchild.node }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+```
+
+{% endfor %}
+{% else %}
+*No attack trees generated.*
+{% endif %}
+
+---
+{% if result.has_ai and result.ai_threats %}
+
+## AI-Specific Threat Analysis
+
+> System contains AI/ML components. The following threats apply OWASP LLM Top 10,
+> MITRE ATLAS, and Agentic AI Top 10 frameworks.
+
+{% for threat in result.ai_threats %}
+### {{ threat.get("id", "AI-??") }} — {{ threat.get("title", "Untitled") }}
+
+| Field | Value |
+|-------|-------|
+| Component | {{ threat.get("component", "N/A") }} |
+| ATLAS TTP | {{ threat.get("atlas_ttp", "N/A") }} |
+| OWASP LLM | {{ threat.get("owasp_llm_id", "N/A") }} |
+| DREAD Score | {{ "%.1f" | format(threat.get("dread_scores", {}).values() | list | sum / (threat.get("dread_scores", {}) | length or 1)) }}/10 |
+
+**Description:** {{ threat.get("description", "") }}
+
+**Attack Path:** {{ threat.get("attack_path", "") }}
+
+**Controls:**
+{% for control in threat.get("controls", []) %}
+- {{ control }}
+{% endfor %}
+
+---
+{% endfor %}
+
+### OWASP LLM Top 10 Coverage
+
+| ID | Name | Assessed |
+|----|------|----------|
+| LLM01 | Prompt Injection | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM01") | list | length > 0 else "No" }} |
+| LLM02 | Insecure Output Handling | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM02") | list | length > 0 else "No" }} |
+| LLM03 | Training Data Poisoning | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM03") | list | length > 0 else "No" }} |
+| LLM04 | Model Denial of Service | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM04") | list | length > 0 else "No" }} |
+| LLM05 | Supply Chain Vulnerabilities | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM05") | list | length > 0 else "No" }} |
+| LLM06 | Sensitive Information Disclosure | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM06") | list | length > 0 else "No" }} |
+| LLM07 | Insecure Plugin Design | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM07") | list | length > 0 else "No" }} |
+| LLM08 | Excessive Agency | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM08") | list | length > 0 else "No" }} |
+| LLM09 | Overreliance | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM09") | list | length > 0 else "No" }} |
+| LLM10 | Model Theft | {{ "Yes" if result.ai_threats | selectattr("owasp_llm_id", "defined") | selectattr("owasp_llm_id", "equalto", "LLM10") | list | length > 0 else "No" }} |
+
+{% endif %}
+---
+
+## MITRE ATT&CK Heatmap
+
+The following tactics and techniques were identified across all threats:
+
+{% set all_ttps = [] %}
+{% for threat in result.threats %}
+{% for ttp in threat.mitre_ttps %}
+{% if ttp not in all_ttps %}{% set _ = all_ttps.append(ttp) %}{% endif %}
+{% endfor %}
+{% endfor %}
+
+**Techniques Identified:** {{ all_ttps | join(", ") if all_ttps else "None mapped" }}
+
+| Technique | Threats |
+|-----------|---------|
+{% for ttp in all_ttps %}
+| {{ ttp }} | {{ result.threats | selectattr("mitre_ttps", "containing", ttp) | map(attribute="id") | join(", ") }} |
+{% endfor %}
+
+---
+
+## Risk Summary
+
+### STRIDE Coverage
+
+| Category | Count | Severity Distribution |
+|----------|-------|-----------------------|
+{% set stride_cats = ["S", "T", "R", "I", "D", "E"] %}
+{% set stride_names = {"S": "Spoofing", "T": "Tampering", "R": "Repudiation", "I": "Info Disclosure", "D": "Denial of Service", "E": "Elevation of Privilege"} %}
+{% for cat in stride_cats %}
+{% set cat_threats = result.threats | selectattr("stride_cat", "equalto", cat) | list %}
+| {{ stride_names[cat] }} ({{ cat }}) | {{ cat_threats | length }} | C:{{ cat_threats | selectattr("severity", "equalto", "Critical") | list | length }} H:{{ cat_threats | selectattr("severity", "equalto", "High") | list | length }} M:{{ cat_threats | selectattr("severity", "equalto", "Medium") | list | length }} L:{{ cat_threats | selectattr("severity", "equalto", "Low") | list | length }} |
+{% endfor %}
+
+---
+
+## Appendix: Full Threat Index
+
+| ID | Title | Component | STRIDE | Severity | DREAD | AI |
+|----|-------|-----------|--------|----------|-------|----|
+{% for threat in result.threats %}
+| {{ threat.id }} | {{ threat.title }} | {{ threat.component }} | {{ threat.stride_cat }} | {{ threat.severity }} | {{ "%.1f" | format(threat.dread_total) }} | {{ "Yes" if threat.is_ai_threat else "No" }} |
+{% endfor %}
+
+---
+
+*Report generated by ARGUS — Autonomous Reconnaissance & General-purpose Universal Security System*
+*Threat modeling: STRIDE + PASTA + DREAD + MITRE ATT&CK + MITRE ATLAS + OWASP LLM Top 10*
