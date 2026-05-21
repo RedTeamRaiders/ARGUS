@@ -112,6 +112,16 @@ class AgentContext:
         cycle_count = len(self.tried)
         return cycle_count >= self._exhaustion_limit
 
+    def update_from_analysis(self, analysis: "Analysis") -> None:
+        """Merge analysis.new_context into the agent's mental model."""
+        nc = analysis.new_context if analysis else {}
+        self.interesting.extend(nc.get("interesting", []))
+        self.tech_stack  = list(set(self.tech_stack  + nc.get("tech_stack", [])))
+        self.open_ports += nc.get("open_ports", [])
+        self.endpoints  += nc.get("endpoints", [])
+        self.users       = list(set(self.users + nc.get("users", [])))
+        self.credentials+= nc.get("credentials", [])
+
     def summary(self) -> str:
         """Returns a concise mental model summary for Claude's context window."""
         return json.dumps({
@@ -395,13 +405,35 @@ class BaseAgent:
 
         await self._rate_limiter.wait()
         try:
-            result = await module.run(target=target, options=params)
+            import inspect
+            sig     = inspect.signature(module.run)
+            valid   = set(sig.parameters.keys())
+
+            if "target" in valid:
+                # Standard wrapper: run(target, [port], [flags], ...)
+                call_kw = {k: v for k, v in params.items() if k in valid and k != "target"}
+                result  = await module.run(target=target, **call_kw)
+            elif "query" in valid:
+                # Query-style wrapper (searchsploit): run(query, ...)
+                call_kw = {k: v for k, v in params.items() if k in valid}
+                call_kw.setdefault("query", target)
+                result  = await module.run(**call_kw)
+            else:
+                # Generic fallback: pass whatever the wrapper accepts
+                call_kw = {k: v for k, v in params.items() if k in valid}
+                result  = await module.run(**call_kw)
+
             duration = time.monotonic() - t0
             audit.tool_call(agent=self.name, tool=tool_name,
                             command=str(params)[:80], target=target,
                             duration_s=round(duration, 2), success=True)
-            await context.session.add_tool_output(tool_name, str(params), result if isinstance(result, dict) else {"raw": str(result)})
-            return result if isinstance(result, dict) else {"tool": tool_name, "parsed": [], "raw_output": str(result), "error": None}
+            await context.session.add_tool_output(
+                tool_name, str(params),
+                result if isinstance(result, dict) else {"raw": str(result)},
+            )
+            return result if isinstance(result, dict) else {
+                "tool": tool_name, "parsed": [], "raw_output": str(result), "error": None
+            }
         except Exception as e:
             duration = time.monotonic() - t0
             audit.tool_call(agent=self.name, tool=tool_name,
