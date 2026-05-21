@@ -227,35 +227,161 @@ class Orchestrator:
         auth: AuthRecord,
         session: Session,
         findings: list[Finding],
+        extra_meta: dict | None = None,
     ) -> None:
-        """Render and save Markdown + JSON reports."""
+        """Render and save Markdown, JSON, HTML, and PDF reports."""
         REPORTS_DIR.mkdir(exist_ok=True)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         safe_target = auth.target.replace("://", "_").replace("/", "_").replace(".", "_")[:40]
         base_name = f"{timestamp}_{agent_name}_{safe_target}"
 
+        # Recover session context for richer meta
+        session_state = {}
+        try:
+            session_state = await session.get_state() or {}
+        except Exception:
+            pass
+
         meta = {
-            "agent":      agent_name,
-            "target":     auth.target,
-            "operator":   auth.operator,
-            "session_id": session.id,
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "agent":          agent_name,
+            "target":         auth.target,
+            "operator":       getattr(auth, "operator", "ARGUS Operator"),
+            "session_id":     session.id,
+            "generated_at":   datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "total_findings": len(findings),
+            "scope":          getattr(auth, "scope_description", ""),
+            "mode":           session_state.get("mode", ""),
+            "tech_stack":     session_state.get("tech_stack", []),
+            "open_ports":     session_state.get("open_ports", []),
+            "sections":       [],
         }
+
+        # Agent-specific extra sections
+        meta.update(self._build_agent_meta(agent_name, session_state))
+        if extra_meta:
+            meta.update(extra_meta)
 
         md_path   = REPORTS_DIR / f"{base_name}.md"
         json_path = REPORTS_DIR / f"{base_name}.json"
+        html_path = REPORTS_DIR / f"{base_name}.html"
+        pdf_path  = REPORTS_DIR / f"{base_name}.pdf"
 
-        md_content   = reporter.render_markdown(findings, meta)
-        json_content = reporter.render_json(findings, meta)
-
-        reporter.save(md_content,   md_path)
-        reporter.save(json_content, json_path)
+        reporter.save(reporter.render_markdown(findings, meta), md_path)
+        reporter.save(reporter.render_json(findings, meta),     json_path)
+        reporter.save(reporter.render_html(findings, meta),     html_path)
+        pdf_ok = reporter.render_pdf(findings, meta, pdf_path)
 
         _print_summary(findings, auth.target)
-        console.print(f"\n[bold green]✓ Report saved:[/bold green]")
-        console.print(f"  Markdown: [cyan]{md_path}[/cyan]")
-        console.print(f"  JSON:     [cyan]{json_path}[/cyan]\n")
+        console.print(f"\n[bold green]✓ Reports saved:[/bold green]")
+        console.print(f"  Markdown : [cyan]{md_path}[/cyan]")
+        console.print(f"  JSON     : [cyan]{json_path}[/cyan]")
+        console.print(f"  HTML     : [cyan]{html_path}[/cyan]")
+        if pdf_ok:
+            console.print(f"  PDF      : [cyan]{pdf_path}[/cyan]")
+        else:
+            console.print(f"  PDF      : [dim]skipped (weasyprint unavailable)[/dim]")
+        console.print()
+
+    @staticmethod
+    def _build_agent_meta(agent_name: str, session_state: dict) -> dict:
+        """Build agent-specific metadata sections for the report."""
+        extra: dict = {"sections": []}
+
+        if agent_name == "pentest":
+            post = session_state.get("pentest_result", {})
+            if post:
+                extra["mode"] = post.get("mode", "")
+            attack_chain = session_state.get("attack_chain", [])
+            if attack_chain:
+                extra["sections"].append({
+                    "title": "Attack Chain Narrative",
+                    "type": "text",
+                    "content": "\n".join(f"{i+1}. {step}" for i, step in enumerate(attack_chain)),
+                })
+            bloodhound = session_state.get("bloodhound_paths", [])
+            if bloodhound:
+                extra["sections"].append({
+                    "title": "Active Directory Attack Paths",
+                    "type": "text",
+                    "content": "\n".join(f"• {p}" for p in bloodhound[:10]),
+                })
+
+        elif agent_name == "bug_bounty":
+            scope_urls = session_state.get("scope_urls", [])
+            if scope_urls:
+                extra["sections"].append({
+                    "title": "Tested Endpoints",
+                    "type": "text",
+                    "content": "\n".join(f"• {u}" for u in scope_urls),
+                })
+
+        elif agent_name == "red_team":
+            objective = session_state.get("objective", "")
+            if objective:
+                extra["executive_summary"] = (
+                    f"Campaign Objective: {objective}\n"
+                    + session_state.get("campaign_summary", "")
+                )
+            detection_gaps = session_state.get("detection_gaps", [])
+            if detection_gaps:
+                extra["sections"].append({
+                    "title": "Detection Gaps",
+                    "type": "text",
+                    "content": "\n".join(f"• {g}" for g in detection_gaps),
+                })
+
+        elif agent_name == "ai_redteam":
+            sut = session_state.get("system_under_test", "")
+            if sut:
+                extra["sections"].append({
+                    "title": "AI System Under Test",
+                    "type": "text",
+                    "content": sut,
+                })
+            extra["methodology"] = "OWASP LLM Top 10 · MITRE ATLAS · NIST AI RMF 1.0"
+
+        elif agent_name == "voice_redteam":
+            ttype = session_state.get("target_type", "")
+            extra["sections"].append({
+                "title": "Voice System Profile",
+                "type": "text",
+                "content": f"System Type: {ttype or 'Not specified'}",
+            })
+
+        elif agent_name == "threat_model":
+            stride = session_state.get("stride_table", [])
+            if stride:
+                extra["sections"].append({
+                    "title": "STRIDE Threat Matrix",
+                    "type": "table",
+                    "columns": ["Category", "Threat", "Component", "Mitigation", "Risk"],
+                    "rows": [[r.get("category",""), r.get("threat",""), r.get("component",""),
+                               r.get("mitigation",""), r.get("risk","")] for r in stride],
+                })
+            sys_desc = session_state.get("system_description", "")
+            if sys_desc:
+                extra["sections"].insert(0, {
+                    "title": "System Description",
+                    "type": "text",
+                    "content": sys_desc,
+                })
+
+        elif agent_name == "code_review":
+            code_path = session_state.get("code_path", "")
+            language  = session_state.get("language", "")
+            framework = session_state.get("framework", "")
+            parts = []
+            if code_path: parts.append(f"Code Path: {code_path}")
+            if language:  parts.append(f"Language: {language}")
+            if framework: parts.append(f"Framework: {framework}")
+            if parts:
+                extra["sections"].append({
+                    "title": "Code Review Scope",
+                    "type": "text",
+                    "content": "\n".join(parts),
+                })
+
+        return extra
 
     async def _load_session_findings(self, session: Session) -> list[Finding]:
         """Load findings from an interrupted session."""

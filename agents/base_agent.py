@@ -28,6 +28,7 @@ from shared.logger import audit
 from shared.progress import LiveDashboard
 from shared.reporter import Confidence, Finding, Severity
 from shared.session import Scope, Session
+from shared.skill_learner import load_techniques, log_technique, technique_from_finding
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -142,7 +143,10 @@ class BaseAgent:
 
     def _load_skill(self) -> str:
         path = SKILLS_DIR / self.name / "SKILL.md"
-        return path.read_text() if path.exists() else ""
+        base = path.read_text() if path.exists() else ""
+        # Append globally learned techniques so every agent benefits from prior engagements
+        learned = load_techniques(limit=30)
+        return f"{base}\n\n{learned}" if learned else base
 
     def _load_prompt(self) -> str:
         path = PROMPTS_DIR / f"{self.name}.md"
@@ -223,6 +227,8 @@ class BaseAgent:
                         analysis.finding.confirmed,
                         analysis.finding.confidence.value,
                     )
+                    # Persist technique to shared learning log for future agent runs
+                    self._save_technique(analysis.finding, thought)
                 except ValueError as e:
                     audit.error(self.name, f"Finding rejected: {e}")
 
@@ -238,6 +244,51 @@ class BaseAgent:
         await session.close()
         audit.info(self.name, f"Engagement complete | findings={len(context.findings)}")
         return context.findings
+
+    # ── Technique learning ────────────────────────────────────────────────
+
+    def _save_technique(self, finding: Finding, thought: Thought) -> None:
+        """Persist a confirmed finding as a learned technique for future agents."""
+        try:
+            entry = technique_from_finding(
+                finding=finding,
+                agent_name=self.name,
+                approach=thought.rationale,
+                payload=json.dumps(thought.next_action.get("params", {})),
+                source="engagement",
+            )
+            log_technique(entry)
+            audit.info(self.name, f"Technique logged: {finding.title}")
+        except Exception as exc:
+            audit.error(self.name, f"Failed to log technique: {exc}")
+
+    def log_technique_manual(
+        self,
+        technique: str,
+        category: str,
+        target_pattern: str,
+        conditions: str,
+        approach: str,
+        payload: str,
+        evidence: str,
+        severity: str = "Medium",
+        tags: list[str] | None = None,
+    ) -> None:
+        """Call this from sub-agents to manually record a technique not tied to a Finding."""
+        from shared.skill_learner import TechniqueEntry
+        entry = TechniqueEntry(
+            technique=technique,
+            category=category,
+            target_pattern=target_pattern,
+            conditions=conditions,
+            approach=approach,
+            payload=payload,
+            evidence=evidence,
+            agent=self.name,
+            severity=severity,
+            tags=tags or [],
+        )
+        log_technique(entry)
 
     # ── Think step (Claude reasons about what to do next) ─────────────────
 
@@ -284,9 +335,12 @@ class BaseAgent:
             cached_tokens=getattr(resp.usage, "cache_read_input_tokens", 0),
         )
 
+        return self._parse_thought(resp.content[0].text)
+
+    def _parse_thought(self, text: str) -> Thought:
+        """Parse a JSON think-step response into a Thought. Shared by all agents."""
         try:
-            raw = resp.content[0].text.strip()
-            # Strip markdown code fences if present
+            raw = text.strip()
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
