@@ -41,8 +41,13 @@ CATEGORY_MAP = {
     "dos":       "Denial of Service",
     "info":      "Information Disclosure",
     "logic":     "Business Logic",
-    "config":    "Security Misconfiguration",
-    "other":     "Other",
+    "config":          "Security Misconfiguration",
+    "prompt_injection": "LLM Prompt Injection",
+    "rag_attack":       "RAG / Vector DB Attack",
+    "jailbreak":        "LLM Jailbreak",
+    "guardrail_bypass": "Guardrail Bypass",
+    "context_override": "Context Override",
+    "other":            "Other",
 }
 
 
