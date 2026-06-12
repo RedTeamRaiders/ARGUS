@@ -211,6 +211,71 @@ Audit logs are written to `.claude/audit.log` as JSON lines — every tool call,
 
 ---
 
+## Data security & HNDL (Harvest-Now-Decrypt-Later) posture
+
+ARGUS handles sensitive engagement data — credentials, cookies, PoCs, target
+infrastructure details. This section documents what we protect, how, and what
+remains a vendor-level concern.
+
+### What is encrypted at rest
+| Data | Storage | Protection |
+|---|---|---|
+| Findings (titles, CVSS, PoCs, evidence) | `data/sessions.db` | AES-256-GCM (when `ARGUS_SESSION_KEY` is set) |
+| Tool outputs (raw scanner data) | `data/sessions.db` | AES-256-GCM (same) |
+| Session context (mental model, credentials, tech stack) | `data/sessions.db` | AES-256-GCM (same) |
+| Scope definitions | `data/sessions.db` | AES-256-GCM (same) |
+| API keys (Anthropic, Shodan, etc.) | `.env` | gitignored, file-system permissions |
+| Audit trail | `.claude/audit.log` | gitignored, file-system permissions |
+| Reports | `reports/` | gitignored — distribute through encrypted channels |
+
+### Why AES-256-GCM
+AES-256 is the symmetric primitive recommended by NIST for protection against
+**Harvest-Now-Decrypt-Later** attacks. Grover's algorithm reduces the brute-force
+strength of AES-256 by half — leaving 128-bit post-quantum security, which is
+still beyond reach of any foreseeable quantum computer. GCM provides
+authenticated encryption: any tamper with the database file produces a
+decryption error on read.
+
+Key derivation uses **PBKDF2-HMAC-SHA256, 600,000 iterations** (OWASP 2023
+minimum) with a per-install 16-byte salt at `data/.salt` (chmod 600).
+
+### What we cannot protect
+- **Anthropic API traffic.** TLS to `api.anthropic.com` uses classical
+  ECDH/X25519 key exchange. A nation-state-level adversary capturing this
+  traffic today could decrypt the contents once a CRQC (cryptographically
+  relevant quantum computer) becomes available. This is a vendor-level concern
+  ARGUS cannot mitigate. If you handle truly sensitive prompts, consider
+  Anthropic Bedrock with VPC endpoints, or wait for PQC-hybrid TLS rollout.
+- **Outbound tool traffic.** Scanners (nmap, nuclei, sqlmap) talk to targets
+  over whatever TLS the target supports. `verify=False` is set in
+  `tool_wrappers/httpx.py` and `http_request.py` for pentesting on
+  broken/self-signed infra — be aware this also disables MITM detection.
+
+### Enabling at-rest encryption
+
+```bash
+# Generate a strong key
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+# Add to .env
+echo "ARGUS_SESSION_KEY=<paste-key-here>" >> .env
+```
+
+If `ARGUS_SESSION_KEY` is unset, ARGUS runs in cleartext mode and emits a
+warning to the audit log at startup.
+
+### What never goes to git
+The repository enforces this via `.gitignore` and a pre-commit hook
+(`scripts/install_pre_commit_hook.sh`):
+- `.env`
+- `data/sessions.db`
+- `data/.salt`
+- `.claude/settings.local.json`
+- `.claude/audit.log`
+- `reports/`
+- Any file with an `sk-ant-*`, `sk-*`, `ghp_*`, `AKIA*`, or `-----BEGIN .* PRIVATE KEY-----` pattern
+
+---
+
 ## Contributing
 
 1. Fork the repo and create a feature branch

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from config import SESSION_DB
+from shared.at_rest import seal, unseal
 
 DB_PATH = SESSION_DB
 
@@ -102,7 +103,7 @@ class Session:
             await db.executescript(CREATE_TABLES)
             await db.execute(
                 "INSERT INTO sessions VALUES (?,?,?,?,?,?,?)",
-                (session_id, target, json.dumps(scope.to_dict()), agent, "active", now, now),
+                (session_id, target, seal(json.dumps(scope.to_dict())), agent, "active", now, now),
             )
             await db.commit()
         return cls(session_id, target, scope, agent)
@@ -118,7 +119,7 @@ class Session:
                 row = await cur.fetchone()
         if not row:
             return None
-        scope = Scope.from_dict(json.loads(row[1]))
+        scope = Scope.from_dict(json.loads(unseal(row[1])))
         return cls(session_id, row[0], scope, row[2])
 
     @classmethod
@@ -137,7 +138,7 @@ class Session:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 "INSERT INTO findings VALUES (?,?,?,?,?)",
-                (finding_id, self.id, self.agent, json.dumps(finding_data), _now()),
+                (finding_id, self.id, self.agent, seal(json.dumps(finding_data)), _now()),
             )
             await db.execute(
                 "UPDATE sessions SET updated_at=? WHERE id=?", (_now(), self.id)
@@ -149,7 +150,7 @@ class Session:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 "INSERT INTO tool_outputs VALUES (?,?,?,?,?,?,?)",
-                (str(uuid.uuid4()), self.id, self.agent, tool, command, json.dumps(output), _now()),
+                (str(uuid.uuid4()), self.id, self.agent, tool, command, seal(json.dumps(output)), _now()),
             )
             await db.commit()
 
@@ -158,7 +159,7 @@ class Session:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO context_store VALUES (?,?,?,?)",
-                (self.id, key, json.dumps(value), _now()),
+                (self.id, key, seal(json.dumps(value)), _now()),
             )
             await db.commit()
 
@@ -169,7 +170,7 @@ class Session:
                 (self.id, key),
             ) as cur:
                 row = await cur.fetchone()
-        return json.loads(row[0]) if row else default
+        return json.loads(unseal(row[0])) if row else default
 
     async def get_all_context(self) -> dict[str, Any]:
         async with aiosqlite.connect(DB_PATH) as db:
@@ -177,7 +178,7 @@ class Session:
                 "SELECT key, value_json FROM context_store WHERE session_id=?", (self.id,)
             ) as cur:
                 rows = await cur.fetchall()
-        return {r[0]: json.loads(r[1]) for r in rows}
+        return {r[0]: json.loads(unseal(r[1])) for r in rows}
 
     async def get_findings(self) -> list[dict]:
         async with aiosqlite.connect(DB_PATH) as db:
@@ -186,7 +187,7 @@ class Session:
                 (self.id,),
             ) as cur:
                 rows = await cur.fetchall()
-        return [json.loads(r[0]) for r in rows]
+        return [json.loads(unseal(r[0])) for r in rows]
 
     async def close(self) -> None:
         async with aiosqlite.connect(DB_PATH) as db:

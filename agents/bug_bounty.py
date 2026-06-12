@@ -35,7 +35,14 @@ _PKB = DATA_DIR / "payload_knowledge"
 
 def _load_pkb(name: str) -> dict:
     p = _PKB / f"{name}.json"
-    return json.loads(p.read_text()) if p.exists() else {}
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text())
+    except json.JSONDecodeError as e:
+        # One malformed payload file shouldn't break the whole agent
+        audit.error("bug_bounty", f"Malformed PKB {name}.json: {e}")
+        return {}
 
 
 XSS_REFLECTED  = _load_pkb("xss_reflected")
@@ -130,15 +137,61 @@ class BugBountyAgent(BaseAgent):
         thought = await self._think(context)
         audit.info(self.name, f"Passive recon thought: {thought.rationale}")
 
+        # ── Subdomain enum (passive — never touches the target) ───────────
+        all_subs: set[str] = set()
+        try:
+            import tool_wrappers.subfinder as subfinder
+            subs = await subfinder.run(target)
+            all_subs.update(s["subdomain"] for s in subs if s.get("subdomain"))
+            await context.session.add_tool_output("subfinder", "passive", subs)
+            audit.info(self.name, f"subfinder: {len(subs)} subdomains")
+        except Exception as e:
+            audit.error(self.name, f"subfinder failed: {e}")
+
+        try:
+            import tool_wrappers.amass as amass
+            subs = await amass.run(target, active=False)
+            all_subs.update(s["subdomain"] for s in subs if s.get("subdomain"))
+            await context.session.add_tool_output("amass", "passive", subs)
+            audit.info(self.name, f"amass: {len(subs)} subdomains")
+        except Exception as e:
+            audit.error(self.name, f"amass failed: {e}")
+
+        if all_subs:
+            context.interesting.append(f"discovered_subdomains={len(all_subs)}")
+            context.endpoints.extend(sorted(all_subs)[:200])
+
+            # Resolve which subs are live — dnsx
+            try:
+                import tool_wrappers.dnsx as dnsx
+                resolved = await dnsx.run(list(all_subs)[:300])
+                live = [r["host"] for r in resolved if r.get("a")]
+                context.interesting.append(f"live_subdomains={len(live)}")
+                await context.session.add_tool_output("dnsx", f"hosts={len(all_subs)}", resolved)
+            except Exception as e:
+                audit.error(self.name, f"dnsx failed: {e}")
+                live = list(all_subs)
+
+            # Subdomain takeover check (passive — checks CNAME chain only)
+            try:
+                import tool_wrappers.subjack as subjack
+                takeovers = await subjack.run(list(all_subs)[:200])
+                if takeovers:
+                    context.interesting.append(f"takeover_candidates={len(takeovers)}")
+                    for t in takeovers:
+                        context.findings.append(self._takeover_finding(t, target))
+                await context.session.add_tool_output("subjack", f"hosts={len(all_subs)}", takeovers)
+            except Exception as e:
+                audit.error(self.name, f"subjack failed: {e}")
+
         # Historical URLs via gau
         try:
             import tool_wrappers.gau as gau_wrapper
             gau_result = await gau_wrapper.run(target)
             audit.tool_call(self.name, "gau", {"target": target})
             if gau_result:
-                analysis = await self._analyze(thought, gau_result, context)
-                context.endpoints.extend(analysis.new_context.get("endpoints", []))
-                await context.session.add_tool_output("gau", gau_result)
+                context.endpoints.extend(gau_result[:200])
+                await context.session.add_tool_output("gau", "historical", gau_result)
         except Exception as e:
             audit.error(self.name, f"GAU failed: {e}")
 
@@ -147,62 +200,137 @@ class BugBountyAgent(BaseAgent):
             import tool_wrappers.linkfinder as lf_wrapper
             lf_result = await lf_wrapper.run(target)
             if lf_result:
-                analysis = await self._analyze(thought, lf_result, context)
-                context.endpoints.extend(analysis.new_context.get("endpoints", []))
-                await context.session.add_tool_output("linkfinder", lf_result)
+                await context.session.add_tool_output("linkfinder", "js_endpoints", lf_result)
         except Exception as e:
             audit.error(self.name, f"LinkFinder failed: {e}")
 
-    async def _active_recon(self, target: str, context) -> None:
-        await self.rate_limiter.wait()
+        # ParamSpider — historical params (archive-based, passive)
+        try:
+            import tool_wrappers.paramspider as paramspider
+            params = await paramspider.run(target)
+            if params:
+                context.interesting.append(f"historical_params={len(params)}")
+                await context.session.add_tool_output("paramspider", "historical", params)
+        except Exception as e:
+            audit.error(self.name, f"paramspider failed: {e}")
 
-        # httpx probe
+    async def _active_recon(self, target: str, context) -> None:
+        await self._rate_limiter.wait()
+
+        # ── WAF fingerprint FIRST — drives payload selection downstream ──
+        try:
+            import tool_wrappers.wafw00f as wafw00f
+            waf_result = await wafw00f.run(target)
+            if waf_result:
+                wafs = waf_result[0].get("wafs", [])
+                context.tech_stack = list(set(context.tech_stack + wafs))
+                if wafs:
+                    context.interesting.append(f"WAF_detected={wafs}")
+                await context.session.add_tool_output("wafw00f", "detect", waf_result)
+        except Exception as e:
+            audit.error(self.name, f"wafw00f failed: {e}")
+
+        await self._rate_limiter.wait()
+
+        # ── httpx probe — tech detection ──────────────────────────────────
         try:
             import tool_wrappers.httpx as httpx_wrapper
             result = await httpx_wrapper.run(target)
             if result:
-                thought = await self._think(context)
-                analysis = await self._analyze(thought, result, context)
-                context.tech_stack.update(analysis.new_context.get("tech", {}))
-                await context.session.add_tool_output("httpx", result)
+                # Collect tech
+                techs: list[str] = []
+                for row in result:
+                    techs.extend(row.get("technologies", []) or [])
+                    if row.get("web_server"):
+                        techs.append(row["web_server"])
+                context.tech_stack = list(set(context.tech_stack + techs))
+                await context.session.add_tool_output("httpx", "probe", result)
         except Exception as e:
             audit.error(self.name, f"httpx failed: {e}")
 
-        await self.rate_limiter.wait()
+        await self._rate_limiter.wait()
 
-        # Directory enumeration
+        # ── Directory enumeration — prefer feroxbuster, fall back to gobuster ─
         try:
-            import tool_wrappers.gobuster as gb_wrapper
-            result = await gb_wrapper.run(target)
+            import tool_wrappers.feroxbuster as ferox
+            result = await ferox.run(target, depth=2)
             if result:
-                thought = await self._think(context)
-                analysis = await self._analyze(thought, result, context)
-                context.endpoints.extend(analysis.new_context.get("endpoints", []))
-                await context.session.add_tool_output("gobuster", result)
+                context.endpoints.extend(r["url"] for r in result if r.get("status", 0) < 500)
+                await context.session.add_tool_output("feroxbuster", "enum", result)
+            else:
+                raise RuntimeError("feroxbuster empty — falling back")
+        except Exception:
+            try:
+                import tool_wrappers.gobuster as gb_wrapper
+                result = await gb_wrapper.run(target)
+                if result:
+                    context.endpoints.extend(r.get("path", "") for r in result)
+                    await context.session.add_tool_output("gobuster", "enum", result)
+            except Exception as e:
+                audit.error(self.name, f"directory enum failed: {e}")
+
+        await self._rate_limiter.wait()
+
+        # ── Hakrawler — fast crawl for additional endpoints ──────────────
+        try:
+            import tool_wrappers.hakrawler as hakrawler
+            result = await hakrawler.run(target, depth=2)
+            if result:
+                context.endpoints.extend(r["url"] for r in result)
+                await context.session.add_tool_output("hakrawler", "crawl", result)
         except Exception as e:
-            audit.error(self.name, f"Gobuster failed: {e}")
+            audit.error(self.name, f"hakrawler failed: {e}")
 
-        await self.rate_limiter.wait()
+        await self._rate_limiter.wait()
 
-        # Nuclei detection-only
+        # ── Nuclei detection-only ────────────────────────────────────────
         try:
             import tool_wrappers.nuclei as nuclei_wrapper
             result = await nuclei_wrapper.run(target, mode="detect")
             if result:
-                thought = await self._think(context)
-                analysis = await self._analyze(thought, result, context)
-                for finding_hint in analysis.new_context.get("findings", []):
-                    context.interesting.append(finding_hint)
-                await context.session.add_tool_output("nuclei", result)
+                for hit in result:
+                    context.interesting.append(f"nuclei:{hit.get('template_id', '')}")
+                await context.session.add_tool_output("nuclei", "detect", result)
         except Exception as e:
             audit.error(self.name, f"Nuclei failed: {e}")
+
+        await self._rate_limiter.wait()
+
+        # ── WordPress-specific path (if detected) ─────────────────────────
+        if any("wordpress" in t.lower() or "wp" in t.lower() for t in context.tech_stack):
+            try:
+                import tool_wrappers.wpscan as wpscan
+                result = await wpscan.run(target)
+                if result:
+                    context.interesting.append(f"wpscan_items={len(result)}")
+                    await context.session.add_tool_output("wpscan", "scan", result)
+            except Exception as e:
+                audit.error(self.name, f"wpscan failed: {e}")
+
+        # ── TLS / SSL check on HTTPS targets ──────────────────────────────
+        if target.startswith("https://"):
+            try:
+                import tool_wrappers.testssl as testssl
+                host = target.replace("https://", "").split("/")[0]
+                result = await testssl.run(host, quick=True)
+                if result:
+                    context.interesting.append(f"testssl_severe={len(result)}")
+                    await context.session.add_tool_output("testssl", "scan", result)
+            except Exception as e:
+                audit.error(self.name, f"testssl failed: {e}")
+
+        # ── CVE intelligence — match detected tech against NVD/CIRCL ──────
+        await self._cve_intel_pass(context)
+
+        # ── Arjun parameter discovery on key endpoints ───────────────────
+        await self._param_discovery_pass(target, context)
 
     async def _vuln_identification(self, target: str, context) -> None:
         # Ask Opus what to test given everything we've learned
         resp = client.messages.create(
             model=MODEL_DEEP,
             max_tokens=4096,
-            system=self._system_prompt,
+            system=self._cached_system(),
             messages=[{
                 "role": "user",
                 "content": (
@@ -265,7 +393,7 @@ class BugBountyAgent(BaseAgent):
                 ctx_browser = await browser.new_context()
 
                 for surface_info in surfaces_to_test[:20]:
-                    await self.rate_limiter.wait()
+                    await self._rate_limiter.wait()
                     surface = surface_info.get("surface", {})
                     page_url = surface_info.get("page_url", target)
 
@@ -356,7 +484,7 @@ class BugBountyAgent(BaseAgent):
         resp = client.messages.create(
             model=MODEL_REASON,
             max_tokens=2000,
-            system=self._system_prompt,
+            system=self._cached_system(),
             messages=[{
                 "role": "user",
                 "content": (
@@ -386,7 +514,7 @@ class BugBountyAgent(BaseAgent):
         resp = client.messages.create(
             model=MODEL_REASON,
             max_tokens=500,
-            system=self._system_prompt,
+            system=self._cached_system(),
             messages=[{
                 "role": "user",
                 "content": (
@@ -423,7 +551,7 @@ class BugBountyAgent(BaseAgent):
         resp = client.messages.create(
             model=MODEL_DEEP,
             max_tokens=2000,
-            system=self._system_prompt,
+            system=self._cached_system(),
             messages=[{
                 "role": "user",
                 "content": (
@@ -441,6 +569,87 @@ class BugBountyAgent(BaseAgent):
         chains = result.get("chains", []) if isinstance(result, dict) else []
         for chain in chains:
             audit.info(self.name, f"Chain identified: {chain.get('id')} — {chain.get('combined_impact', '')}")
+
+    # ── New helper passes ─────────────────────────────────────────────────
+
+    def _takeover_finding(self, takeover: dict, target: str) -> Finding:
+        """Build a Finding from a subjack hit."""
+        sub = takeover.get("subdomain", "")
+        service = takeover.get("service", "unknown")
+        return Finding(
+            agent       = self.name,
+            title       = f"Subdomain Takeover: {sub} ({service})",
+            severity    = Severity.HIGH,
+            evidence    = json.dumps(takeover, indent=2),
+            observed    = f"subjack flagged {sub} as vulnerable to takeover via {service}",
+            inferred    = "Dangling DNS record points to an unclaimed external service.",
+            cvss_score  = 7.5,
+            cwe         = "CWE-1390",
+            owasp       = "A05",
+            description = (
+                f"The subdomain {sub} has a CNAME pointing to {service}, "
+                "but the underlying resource is unclaimed. An attacker can register the resource "
+                "and serve content under your domain — leading to cookie theft, phishing, or "
+                "OAuth redirect abuse."
+            ),
+            poc         = f"dig CNAME {sub}  # → {service}",
+            impact      = "Brand impersonation, cookie theft from same-origin parent, OAuth redirect_uri abuse.",
+            remediation = "Remove the DNS record or reclaim the upstream service.",
+            confidence  = Confidence.HIGH,
+            confirmed   = True,
+            confirmed_by= ["subjack"],
+            target      = target,
+            url         = f"https://{sub}/",
+        )
+
+    async def _cve_intel_pass(self, context) -> None:
+        """Fetch CVEs matching the detected tech stack and inject into context."""
+        if not context.tech_stack:
+            return
+        try:
+            from shared.cve_intel import cves_for_stack, summarize
+            records = await cves_for_stack(context.tech_stack, limit_per=5)
+            summary = summarize(records)
+            if summary:
+                context.interesting.append(summary[:3000])
+                await context.session.set_context("cve_intel", {
+                    tech: [{"cve": r.cve_id, "cvss": r.cvss, "sev": r.severity, "has_exploit": r.has_exploit}
+                           for r in cves]
+                    for tech, cves in records.items()
+                })
+                audit.info(self.name, f"CVE intel: {sum(len(v) for v in records.values())} matched")
+        except Exception as e:
+            audit.error(self.name, f"CVE intel failed: {e}")
+
+    async def _param_discovery_pass(self, target: str, context) -> None:
+        """
+        Run arjun against the top-N endpoints discovered so far.
+        Capped at 5 endpoints to keep traffic human-shaped.
+        """
+        candidates: list[str] = []
+        for ep in context.endpoints:
+            if not isinstance(ep, str):
+                continue
+            if ep.startswith("http") and ep not in candidates:
+                candidates.append(ep)
+            if len(candidates) >= 5:
+                break
+        if not candidates:
+            candidates = [target]
+
+        try:
+            import tool_wrappers.arjun as arjun
+            all_params: list[dict] = []
+            for endpoint in candidates:
+                await self._rate_limiter.wait()
+                params = await arjun.run(endpoint, method="GET")
+                if params:
+                    all_params.extend(params)
+            if all_params:
+                context.interesting.append(f"discovered_params={len(all_params)}")
+                await context.session.add_tool_output("arjun", f"endpoints={len(candidates)}", {"params": all_params})
+        except Exception as e:
+            audit.error(self.name, f"arjun failed: {e}")
 
     def _parse_json(self, text: str) -> dict | list:
         import re

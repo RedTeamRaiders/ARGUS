@@ -37,3 +37,6 @@ bandit>=1.7.0
 
 # Secret scanning
 trufflehog3>=3.0.0
+
+# At-rest encryption for session store (AES-256-GCM)
+cryptography>=42.0

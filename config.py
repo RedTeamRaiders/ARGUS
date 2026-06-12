@@ -19,6 +19,10 @@ MAX_RPS           = int(os.getenv("ARGUS_MAX_RPS", 30))
 DEFAULT_TIMEOUT   = int(os.getenv("ARGUS_DEFAULT_TIMEOUT", 300))
 LOG_LEVEL         = os.getenv("ARGUS_LOG_LEVEL", "INFO")
 
+# At-rest encryption — passphrase for AES-256-GCM session store encryption.
+# If empty, sessions.db is stored CLEARTEXT (back-compat mode).
+SESSION_KEY       = os.getenv("ARGUS_SESSION_KEY", "")
+
 # Paths
 DATA_DIR          = BASE_DIR / "data"
 SKILLS_DIR        = BASE_DIR / "skills"

@@ -6,6 +6,9 @@
 data/sessions.db
 data/*.db
 
+# At-rest encryption salt (per-install, must never be shared)
+data/.salt
+
 # Python
 __pycache__/
 *.py[cod]

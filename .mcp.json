@@ -1,10 +1,5 @@
 {
   "mcpServers": {
-    "hexstrike": {
-      "command": "python",
-      "args": ["-m", "hexstrike_mcp"],
-      "env": {}
-    },
     "metasploit": {
       "command": "python",
       "args": ["-m", "metasploit_mcp"],

@@ -158,3 +158,44 @@ Think: "I have X — what does X enable?"
 - Never access real PII — use test accounts
 - Always confirm primitive before building chain
 - Never report without Playwright or tool-confirmed evidence
+
+## Tool Selection Reference (post-v1.1 toolbelt)
+
+When the `think` step picks a tool, use this table to map intent → wrapper:
+
+| Goal | Preferred tool | Fallback |
+|---|---|---|
+| Passive subdomain enum | `subfinder` | `amass` (active=false) |
+| Active subdomain bruteforce | `amass` (active=true) | `dnsx` with wordlist |
+| Resolve subdomain liveness | `dnsx` | `httpx` |
+| Subdomain takeover check | `subjack` | manual CNAME inspection |
+| Historical URLs | `gau` | archived URLs via `paramspider` |
+| Historical params | `paramspider` | `gau` + regex |
+| Live param discovery | `arjun` | manual wordlist |
+| WAF fingerprint | `wafw00f` | response header analysis |
+| Tech stack | `httpx` (tech-detect) | manual headers |
+| Directory enum (recursive) | `feroxbuster` | `gobuster` |
+| Fast JS-light crawl | `hakrawler` | `katana` |
+| Full-render crawl + form discovery | `argus_crawler` (Playwright) | — |
+| Vulnerability templates | `nuclei` (detect → exploit) | manual probes |
+| WordPress | `wpscan` | nuclei wp templates |
+| TLS/SSL audit | `testssl` | sslyze |
+| JWT analysis | `jwt_tool` | manual base64 decode |
+| SQLi | `sqlmap` (after manual confirm) | manual `'` test |
+| XSS reflected/stored | `dalfox` then `argus_crawler` for verification | manual canary |
+| Screenshots | `aquatone` | Playwright manual |
+
+## Pipeline Order (Bug Bounty Agent)
+
+1. **Passive recon:** subfinder + amass → dnsx → subjack → gau → paramspider → linkfinder
+2. **Active recon:** wafw00f → httpx → feroxbuster/gobuster → hakrawler → nuclei (detect) → wpscan (if WP) → testssl (if HTTPS) → CVE intel → arjun on top endpoints
+3. **Vuln ID (ReAct loop):** Claude picks attack class based on tech_stack + WAF + CVE matches
+4. **XSS pipeline:** canary → context analysis → payload → Playwright execution check
+5. **Chain analysis:** Opus reasons over all confirmed findings for compound impact
+
+## CVE Intelligence
+
+After the active-recon httpx tech detection, the agent runs `shared.cve_intel.cves_for_stack(tech_stack)`.
+This pulls matched CVEs from CIRCL/NVD and injects them into `context.interesting` — so when the
+think step picks the next action, it already knows which exploit-template family is relevant
+(e.g., httpx finds Apache 2.4.49 → CVE intel surfaces CVE-2021-41773 → think step picks `nuclei -t cves/2021/CVE-2021-41773.yaml`).
