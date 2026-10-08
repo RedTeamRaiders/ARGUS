@@ -107,7 +107,9 @@ class BugBountyAgent(BaseAgent):
 
         # Phase 5 — Chain analysis
         audit.info(self.name, "Phase 5: Vulnerability chain analysis")
-        await self._analyze_chains(context)
+        chain_finding = await self._synthesize_attack_chain(context)
+        if chain_finding:
+            context.findings.append(chain_finding)
 
         # Validate and collect findings
         findings = []
@@ -540,35 +542,6 @@ class BugBountyAgent(BaseAgent):
         start = max(0, idx - 200)
         end = min(len(html), idx + 200)
         return html[start:end]
-
-    async def _analyze_chains(self, context) -> None:
-        if len(context.findings) < 2:
-            return
-        finding_summaries = [
-            {"title": f.title, "severity": f.severity.value, "cwe": f.cwe}
-            for f in context.findings[:10]
-        ]
-        resp = client.messages.create(
-            model=MODEL_DEEP,
-            max_tokens=2000,
-            system=self._cached_system(),
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"## Confirmed Findings\n{json.dumps(finding_summaries, indent=2)}\n\n"
-                    "Identify vulnerability chains that combine these findings for higher impact. "
-                    "Specifically: can any finding be used to reach admin access, account takeover, or data exfiltration?\n\n"
-                    "Return JSON:\n"
-                    '{"chains": [{"id": "CHAIN-01", "findings": [], "combined_impact": "", "severity": "Critical|High"}]}'
-                ),
-            }],
-        )
-        audit.claude_call(self.name, MODEL_DEEP, "chain_analysis",
-                          resp.usage.input_tokens, resp.usage.output_tokens)
-        result = self._parse_json(resp.content[0].text)
-        chains = result.get("chains", []) if isinstance(result, dict) else []
-        for chain in chains:
-            audit.info(self.name, f"Chain identified: {chain.get('id')} — {chain.get('combined_impact', '')}")
 
     # ── New helper passes ─────────────────────────────────────────────────
 

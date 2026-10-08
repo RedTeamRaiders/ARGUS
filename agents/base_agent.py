@@ -318,6 +318,141 @@ class BaseAgent:
         )
         log_technique(entry)
 
+    # ── Chain-exploitation synthesis ──────────────────────────────────────
+
+    async def _synthesize_attack_chain(
+        self, context: "AgentContext", extra_context: str = "",
+    ) -> Optional[Finding]:
+        """
+        Post-hoc review across ALL confirmed findings from this engagement —
+        not another finding-by-finding pass, a review of whether the findings
+        COMBINE into a higher-impact exploitation chain (SSRF -> internal
+        metadata read -> credential theft -> lateral move -> DA; weak creds
+        -> shell -> privesc -> domain compromise, etc).
+
+        Call this once, after the main loop(s) finish and before the
+        validate/persist step, so it sees the complete finding set.
+
+        Side effects:
+          - Tags chain_id/chain_position on every component finding so the
+            report can cross-reference them.
+          - Writes session.set_context("attack_chain", narrative) — this is
+            what orchestrator.py's "Attack Chain Narrative" report section
+            reads; until this call exists, that section is always empty.
+
+        Returns a synthesized chain Finding when Opus identifies a genuine
+        causal link (not mere co-occurrence), or None otherwise. The chain
+        Finding's confirmed_by is the actual list of component findings that
+        compose it — not a self-reported string — so Finding.validate()'s
+        2-confirmation requirement for Critical/High is backed by real,
+        already-validated findings instead of an LLM-asserted list.
+        """
+        if len(context.findings) < 2:
+            return None
+
+        await self._rate_limiter.wait()
+
+        summaries = [
+            {
+                "idx": i,
+                "title": f.title,
+                "severity": f.severity.value,
+                "cwe": f.cwe,
+                "owasp": f.owasp,
+                "observed": (f.observed or "")[:200],
+            }
+            for i, f in enumerate(context.findings)
+        ]
+
+        resp = client.messages.create(
+            model=MODEL_DEEP,
+            max_tokens=2500,
+            system=self._cached_system(),
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"## Target\n{context.target}\n\n"
+                    f"## Confirmed Findings (this engagement)\n{json.dumps(summaries, indent=2)}\n\n"
+                    f"## Full Mental Model\n{context.summary()}\n\n"
+                    + (f"## Additional Context\n{extra_context}\n\n" if extra_context else "")
+                    + "Review these findings for a CHAIN of exploitation — a sequence where one "
+                    "finding genuinely enables, amplifies, or pivots into another. Do NOT report a "
+                    "chain for findings that merely co-occur without a causal link evidenced above.\n\n"
+                    "Return JSON only:\n"
+                    "{\n"
+                    '  "chain_exists": true/false,\n'
+                    '  "chain_narrative": ["step 1 ...", "step 2 ...", "step N ..."],\n'
+                    '  "finding_indices": [0, 2, 3],\n'
+                    '  "combined_severity": "Critical|High|Medium",\n'
+                    '  "combined_impact": "what the attacker ultimately achieves",\n'
+                    '  "remediation_priority": "which single fix breaks the chain"\n'
+                    "}"
+                ),
+            }],
+        )
+        audit.claude_call(
+            agent=self.name, model=MODEL_DEEP, purpose="chain_synthesis",
+            tokens_in=resp.usage.input_tokens,
+            tokens_out=resp.usage.output_tokens,
+            cached_tokens=getattr(resp.usage, "cache_read_input_tokens", 0),
+        )
+
+        data = self._parse_json_response(resp.content[0].text)
+        if not data or not data.get("chain_exists"):
+            return None
+
+        chain_id = f"chain-{self.name}-{int(time.time())}"
+        narrative = data.get("chain_narrative", [])
+        idxs = [i for i in data.get("finding_indices", []) if isinstance(i, int) and 0 <= i < len(context.findings)]
+
+        for pos, i in enumerate(idxs, start=1):
+            context.findings[i].chain_id = chain_id
+            context.findings[i].chain_position = pos
+
+        if narrative:
+            await context.session.set_context("attack_chain", narrative)
+
+        try:
+            combined_sev = Severity(data.get("combined_severity", "High"))
+        except ValueError:
+            combined_sev = Severity.HIGH
+
+        chained_titles = [context.findings[i].title for i in idxs]
+        chain_finding = Finding(
+            agent=self.name,
+            title=(
+                f"Exploitation Chain: {' -> '.join(chained_titles[:4])}"
+                if chained_titles else "Exploitation Chain"
+            ),
+            severity=combined_sev,
+            evidence=json.dumps({
+                "chain_steps": narrative,
+                "component_findings": chained_titles,
+            }, indent=2),
+            observed="\n".join(narrative),
+            inferred=data.get("combined_impact", ""),
+            description=data.get("combined_impact", ""),
+            impact=data.get("combined_impact", ""),
+            remediation=data.get("remediation_priority", ""),
+            confidence=Confidence.HIGH if len(idxs) >= 2 else Confidence.MEDIUM,
+            confirmed=len(idxs) >= 2,
+            # Real confirmation: the component findings that compose this chain,
+            # each of which already passed its own validate() independently.
+            confirmed_by=[f"{context.findings[i].agent}:{context.findings[i].title}" for i in idxs][:5],
+            target=context.target,
+            chain_id=chain_id,
+            chain_position=0,
+        )
+        try:
+            chain_finding.validate()
+        except ValueError as e:
+            audit.error(self.name, f"Chain finding failed validation, downgrading: {e}")
+            chain_finding.confirmed = False
+            chain_finding.confidence = Confidence.LOW
+
+        audit.info(self.name, f"Attack chain synthesized: {len(idxs)} findings -> {chain_finding.title}")
+        return chain_finding
+
     # ── Think step (Claude reasons about what to do next) ─────────────────
 
     async def _think(self, context: AgentContext, model: str = "") -> Thought:
