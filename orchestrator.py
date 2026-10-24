@@ -235,10 +235,14 @@ class Orchestrator:
         safe_target = auth.target.replace("://", "_").replace("/", "_").replace(".", "_")[:40]
         base_name = f"{timestamp}_{agent_name}_{safe_target}"
 
-        # Recover session context for richer meta
+        # Recover session context for richer meta. (get_all_context() is the
+        # real Session method — session_state previously came from a
+        # get_state() call that doesn't exist on Session, so this silently
+        # returned {} every time and the coverage_matrix/compromise_chains
+        # additions below would never have reached a report.)
         session_state = {}
         try:
-            session_state = await session.get_state() or {}
+            session_state = await session.get_all_context() or {}
         except Exception:
             pass
 
@@ -253,6 +257,12 @@ class Orchestrator:
             "mode":           session_state.get("mode", ""),
             "tech_stack":     session_state.get("tech_stack", []),
             "open_ports":     session_state.get("open_ports", []),
+            # Part 2 — coverage_gate.py's matrix, persisted by the agent via
+            # session.set_context since the live gate object doesn't survive
+            # a process boundary. Reporter._enrich_meta derives
+            # "compromise_chains" (Part 4) directly from `findings` instead —
+            # no session round-trip needed for those.
+            "coverage_matrix": session_state.get("coverage_matrix", []),
             "sections":       [],
         }
 

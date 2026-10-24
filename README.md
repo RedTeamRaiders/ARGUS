@@ -8,15 +8,21 @@ AI-powered security agent that behaves like a human pentester, not a DAST scanne
 
 ## Modules
 
-| # | Module | Description |
-|---|--------|-------------|
-| 1 | Penetration Testing | Black box + white box, full compromise chain |
-| 2 | Bug Bounty | OSCP/OSWE-style web application testing |
-| 3 | Red Teaming | APT simulation + MITRE ATT&CK coverage |
-| 4 | AI Red Teaming | OWASP LLM Top 10 + MITRE ATLAS + agentic AI attacks |
-| 5 | Voice Red Teaming | IVR bypass + voice biometric + acoustic attacks |
-| 6 | Threat Modeling | STRIDE + PASTA + AI/ATLAS scenarios |
-| 7 | Secure Code Review | SAST + semantic analysis + CWE mapping |
+| # | Module | Description | Depth |
+|---|--------|-------------|-------|
+| 1 | Penetration Testing | Black box + white box, full compromise chain | OWASP Top 10 (2021) skill catalog, black box + white box, enforced coverage gate, deterministic chain detection, reportability validation |
+| 2 | Bug Bounty | OSCP/OSWE-style web application testing | OWASP Top 10 (2021) skill catalog (black box), enforced coverage gate, deterministic chain detection, reportability validation |
+| 3 | Red Teaming | APT simulation + MITRE ATT&CK coverage | Agent methodology only — no dedicated skill catalog or coverage gate yet |
+| 4 | AI Red Teaming | OWASP LLM Top 10 + MITRE ATLAS + agentic AI attacks | Agent methodology only — no dedicated skill catalog or coverage gate yet |
+| 5 | Voice Red Teaming | IVR bypass + voice biometric + acoustic attacks | Agent methodology only — no dedicated skill catalog or coverage gate yet |
+| 6 | Threat Modeling | STRIDE + PASTA + AI/ATLAS scenarios | Agent methodology only — no dedicated skill catalog or coverage gate yet |
+| 7 | Secure Code Review | SAST + semantic analysis + CWE mapping | Agent methodology only — no dedicated skill catalog or coverage gate yet |
+
+Modules 1–2 share `shared/coverage_gate.py` (generic, taxonomy-agnostic — see
+`shared/manifests/owasp_top10.py` for the OWASP-specific manifest) and
+`shared/pivot_scanner.py` (deterministic compromise-chain detection).
+Modules 3–7 are expected to get their own manifests reusing the same
+generic gate class in a later pass — they do not yet have one.
 
 ---
 

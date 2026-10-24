@@ -74,6 +74,29 @@ class Finding:
     chain_id:       Optional[str] = None  # links findings in an attack chain
     chain_position: int           = 0     # step N in the chain
 
+    # Part 4 — compromise chain schema. finding_type="chain" findings reference
+    # OTHER findings already in session.py's store by chain_steps (ordered IDs/
+    # titles) rather than duplicating their evidence.
+    finding_type:   str           = "single"              # "single" | "chain"
+    chain_steps:    list[str]     = field(default_factory=list)
+    chain_evidence: dict          = field(default_factory=dict)
+    # {"final_impact": "rce|auth_bypass|data_exfil|full_compromise",
+    #  "final_poc": "...", "pivot_logic": "..."}
+
+    # Part 4 — short tag matching a skill's `primitive` frontmatter field.
+    # Lets shared/pivot_scanner.py cross-reference this finding against
+    # others for known combinable primitive pairs. Empty = not chain-eligible.
+    primitive:      str           = ""
+
+    # Part 5 — set by shared/validation_gate.py before a finding is eligible
+    # for the report. VALIDATED or REJECTED(reason); "" means not yet run.
+    validation_status: str        = ""
+
+    # Part 6 — set by shared/evidence_hygiene.py during validate(). Flagged
+    # (never auto-redacted) so a human reviews before this reaches reports/.
+    pii_flagged:      bool        = False
+    pii_flag_reason:  str         = ""
+
     # Metadata
     target:      str          = ""
     url:         str          = ""
@@ -82,10 +105,27 @@ class Finding:
 
     def validate(self) -> None:
         """Raises ValueError if finding is missing mandatory fields."""
+        # Part 6 — scrub secrets / flag possible PII BEFORE anything else
+        # inspects evidence, and upstream of session.add_finding() at every
+        # call site (base_agent.py, pentest.py, bug_bounty.py all call
+        # validate() immediately before persisting).
+        from shared.evidence_hygiene import scrub_and_flag
+        scrub_and_flag(self)
+
         if not self.evidence.strip():
             raise ValueError(f"Finding '{self.title}' has no evidence. Tool output is mandatory.")
         if not self.title.strip():
             raise ValueError("Finding title is required.")
+        if self.finding_type == "chain":
+            if len(self.chain_steps) < 2:
+                raise ValueError(
+                    f"Chain finding '{self.title}' must reference 2+ chain_steps (ordered finding IDs)."
+                )
+            missing = [k for k in ("final_impact", "final_poc", "pivot_logic") if not self.chain_evidence.get(k)]
+            if missing:
+                raise ValueError(
+                    f"Chain finding '{self.title}' is missing chain_evidence field(s): {', '.join(missing)}."
+                )
         if self.severity in (Severity.CRITICAL, Severity.HIGH) and len(self.confirmed_by) < 2:
             if self.confirmed:
                 raise ValueError(
@@ -147,8 +187,42 @@ class Reporter:
                 if t not in ttps:
                     ttps.append(t)
         m["mitre_ttps"] = ttps
+
+        # Part 4 — Compromise Chains: finding_type="chain" findings, surfaced
+        # above individual findings in the report. Derived from the findings
+        # list itself, not a separate store — chain findings already live in
+        # session.py's finding table like any other finding.
+        # Stored as plain dicts (not Finding objects) so render_json can
+        # serialize meta directly — Jinja's attribute access (c.title,
+        # c.chain_evidence.get(...)) works identically against a dict.
+        m.setdefault("compromise_chains", [f.to_dict() for f in findings if f.finding_type == "chain"])
+
+        # Part 2 — Coverage Matrix, populated by the agent via session context
+        # (shared/coverage_gate.py's CoverageGate.matrix()) since the gate
+        # object itself doesn't survive a process boundary. Caller (orchestrator)
+        # is expected to set meta["coverage_matrix"] before rendering; default
+        # to empty so templates render cleanly if it's absent.
+        m.setdefault("coverage_matrix", [])
+
         m.setdefault("sections", [])
         return m
+
+    def finalize(self, findings: list[Finding], meta: dict, gate=None) -> dict:
+        """
+        Call this before rendering/returning findings from an agent's run().
+
+        If a shared.coverage_gate.CoverageGate is passed, this enforces its
+        check() — raising CoverageGateError and refusing to finalize if any
+        applicable category or chain event lacks a terminal status — and
+        merges its coverage matrix into the returned meta dict. Without a
+        gate, this is a no-op passthrough (agents that don't use coverage_gate
+        yet aren't forced to adopt it).
+        """
+        meta = dict(meta)
+        if gate is not None:
+            gate.check()   # raises CoverageGateError on any gap — not caught here
+            meta["coverage_matrix"] = gate.matrix()
+        return meta
 
     def render_markdown(self, findings: list[Finding], meta: dict) -> str:
         """Render findings to Markdown — falls back to built-in if no agent template."""

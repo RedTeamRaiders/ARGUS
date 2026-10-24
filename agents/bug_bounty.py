@@ -23,7 +23,9 @@ from config import (
     SKILLS_DIR,
 )
 from shared.auth_gate import AuthRecord
+from shared.coverage_gate import CoverageGate, CoverageStatus
 from shared.logger import audit
+from shared.manifests.owasp_top10 import build_manifest
 from shared.reporter import Confidence, Finding, Severity, reporter
 from shared.session import Scope, Session
 
@@ -86,6 +88,16 @@ class BugBountyAgent(BaseAgent):
         )
         context.focus_stack = ["passive_recon"]
 
+        # Part 2/3 — generic coverage gate, OWASP manifest, hard test_mode
+        # eligibility filter. Bug bounty is blackbox-only — there's no
+        # code_path parameter on this agent's run(), so "whitebox" never
+        # applies here.
+        self._owasp_manifest = build_manifest(codebase_path="")
+        self._coverage_gate = CoverageGate(self._owasp_manifest, engagement_modes=["blackbox"])
+        self._owasp_catalog = self._load_skill_catalog(
+            SKILLS_DIR / "owasp_top10", engagement_modes=["blackbox"],
+        )
+
         # Phase 1 — Passive Recon
         audit.info(self.name, "Phase 1: Passive recon")
         await self._passive_recon(target, context)
@@ -105,9 +117,28 @@ class BugBountyAgent(BaseAgent):
             await session.add_finding(f.to_dict())
             context.findings.append(f)
 
-        # Phase 5 — Chain analysis
+        # Phase 5 — Chain analysis (LLM-reasoned, broad compound-impact pass)
         audit.info(self.name, "Phase 5: Vulnerability chain analysis")
         await self._analyze_chains(context)
+
+        # Part 4 — deterministic (non-LLM) pivot/chain detection, run once
+        # over the full finding set collected across all phases, then
+        # resolve every CANDIDATE_CHAIN event to CONFIRMED or SKIPPED.
+        from shared.pivot_scanner import scan_new_finding
+        for i, f in enumerate(context.findings):
+            context.candidate_chains.extend(scan_new_finding(f, context.findings[:i]))
+        if context.candidate_chains:
+            await self._resolve_candidate_chains(context)
+
+        # Part 2 — terminal OWASP coverage status, then refuse finalization
+        # (via reporter.finalize) if any applicable category is missing one.
+        self._report_owasp_coverage(context)
+        coverage_meta = reporter.finalize(context.findings, {}, gate=self._coverage_gate)
+        await session.set_context("coverage_matrix", coverage_meta["coverage_matrix"])
+
+        # Part 5 — reportability validation gate, bug-bounty VRT-style bar.
+        from shared.validation_gate import apply_validation_gate
+        context.findings = await apply_validation_gate(context.findings, scope, "bug_bounty", self._deep_think)
 
         # Validate and collect findings
         findings = []
@@ -327,6 +358,9 @@ class BugBountyAgent(BaseAgent):
 
     async def _vuln_identification(self, target: str, context) -> None:
         # Ask Opus what to test given everything we've learned
+        catalog_excerpt = "\n\n".join(
+            f"### {s.path}\n{s.body[:800]}" for s in getattr(self, "_owasp_catalog", [])[:4]
+        )
         resp = client.messages.create(
             model=MODEL_DEEP,
             max_tokens=4096,
@@ -339,7 +373,8 @@ class BugBountyAgent(BaseAgent):
                     f"## Endpoints Discovered\n{json.dumps(context.endpoints[:30], indent=2)}\n\n"
                     f"## Interesting Findings So Far\n{json.dumps(context.interesting[:10], indent=2)}\n\n"
                     f"## Bug Bounty Skill\n{self._skill[:3000]}\n\n"
-                    "Based on the recon, identify the highest-priority vulnerability targets. "
+                    + (f"## OWASP Top 10 Catalog Excerpt\n{catalog_excerpt}\n\n" if catalog_excerpt else "")
+                    + "Based on the recon, identify the highest-priority vulnerability targets. "
                     "For each, describe: what to test, which tool to use, what confirms the vulnerability.\n\n"
                     "Return JSON array:\n"
                     "[\n"
@@ -448,6 +483,7 @@ class BugBountyAgent(BaseAgent):
                                     cvss_score=7.4,
                                     cwe="CWE-79",
                                     owasp="A03",
+                                    primitive="xss_reflected_confirmed",
                                     description=f"Reflected XSS in parameter {surface.get('name')} at {page_url}",
                                     poc=f"Payload: {payload}",
                                     impact="Attacker can execute arbitrary JavaScript in victim browser, steal session cookies, perform CSRF",
@@ -669,3 +705,32 @@ class BugBountyAgent(BaseAgent):
                 except json.JSONDecodeError:
                     pass
             return {}
+
+    # ── Part 2 — OWASP coverage reporting ──────────────────────────────────
+
+    def _report_owasp_coverage(self, context) -> None:
+        """
+        Terminal coverage status per manifest category — see
+        agents/pentest.py's _report_owasp_coverage for the same pattern and
+        its documented limitation (SKIPPED on no-finding, since the current
+        free-form recon/exploitation phases don't track per-category probing).
+        """
+        for cat in self._owasp_manifest:
+            if "blackbox" not in cat.applicable_modes:
+                continue
+            cat_prefix = cat.category_id.split(":")[0]
+            count = sum(
+                1 for f in context.findings
+                if f.owasp and f.owasp.split(":")[0] == cat_prefix
+            )
+            if count:
+                self._coverage_gate.report(
+                    cat.category_id, CoverageStatus.CONFIRMED,
+                    finding_count=count, mode="blackbox",
+                )
+            else:
+                self._coverage_gate.report(
+                    cat.category_id, CoverageStatus.SKIPPED,
+                    reason="not reached within this engagement's recon/exploitation budget",
+                    mode="blackbox",
+                )

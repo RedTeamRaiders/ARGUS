@@ -24,6 +24,7 @@ from config import (
     MAX_RPS, PROMPTS_DIR, SKILLS_DIR,
 )
 from shared.auth_gate import AuthRecord
+from shared.coverage_gate import CoverageStatus
 from shared.logger import audit
 from shared.progress import LiveDashboard
 from shared.reporter import Confidence, Finding, Severity
@@ -92,6 +93,10 @@ class AgentContext:
     tried:         set[str]     = field(default_factory=set)    # actions already taken
     findings:      list[Finding]= field(default_factory=list)
     focus_stack:   list[str]    = field(default_factory=list)   # things to dig into
+    # Part 4 — pending CANDIDATE_CHAIN events from shared/pivot_scanner.py,
+    # resolved to CONFIRMED (a finding_type="chain" Finding) or SKIPPED(reason)
+    # by BaseAgent._resolve_candidate_chains before coverage_gate.check().
+    candidate_chains: list      = field(default_factory=list)
 
     _exhaustion_limit: int      = 50    # max think/act cycles
 
@@ -257,6 +262,8 @@ class BaseAgent:
                     )
                     # Persist technique to shared learning log for future agent runs
                     self._save_technique(analysis.finding, thought)
+                    # Part 4 — deterministic (non-LLM) pivot/chain detection
+                    self._scan_for_chains(analysis.finding, context)
                 except ValueError as e:
                     audit.error(self.name, f"Finding rejected: {e}")
 
@@ -317,6 +324,106 @@ class BaseAgent:
             tags=tags or [],
         )
         log_technique(entry)
+
+    # ── Part 1/3 — generic skill-catalog eligibility gate ──────────────────
+
+    def _load_skill_catalog(
+        self,
+        catalog_dir: Path,
+        engagement_modes: list[str],
+        available_requirements: list[str] | None = None,
+    ) -> list:
+        """
+        Load a SKILL.md catalog (e.g. skills/owasp_top10/) and hard-filter it
+        by test_mode eligibility BEFORE any stack-tag/relevance scoring runs.
+        test_mode is an eligibility gate, not a weighted signal — a skill
+        that doesn't match the engagement's mode(s) must never be a
+        candidate at all, regardless of how relevant its content looks.
+        """
+        from shared.skill_catalog import load_catalog, eligible
+        all_skills = load_catalog(catalog_dir)
+        return eligible(all_skills, set(engagement_modes), set(available_requirements or []))
+
+    # ── Part 4 — deterministic pivot/chain detection ───────────────────────
+
+    def _scan_for_chains(self, new_finding: Finding, context: AgentContext) -> None:
+        """Rules-based (non-LLM) cross-reference — see shared/pivot_scanner.py."""
+        try:
+            from shared.pivot_scanner import scan_new_finding
+            prior = [f for f in context.findings if f is not new_finding]
+            new_candidates = scan_new_finding(new_finding, prior)
+            if new_candidates:
+                context.candidate_chains.extend(new_candidates)
+                for c in new_candidates:
+                    audit.info(self.name, f"CANDIDATE_CHAIN: {c.pivot_name} ({c.finding_a} + {c.finding_b})")
+        except Exception as e:
+            audit.error(self.name, f"Pivot scan failed: {e}")
+
+    async def _resolve_candidate_chains(self, context: AgentContext) -> None:
+        """
+        Resolve every pending CANDIDATE_CHAIN event to either a finding_type
+        "chain" Finding (CONFIRMED) or SKIPPED(reason) — "investigated,
+        pivot didn't hold" is a valid, loggable outcome, not silence.
+        Requires self._coverage_gate to be set by the calling agent.
+        """
+        gate = getattr(self, "_coverage_gate", None)
+        for cand in context.candidate_chains:
+            event_id = f"{cand.pivot_name}:{cand.finding_a[:40]}:{cand.finding_b[:40]}"
+            if gate is not None:
+                gate.register_chain_event(event_id)
+
+            verdict_text = await self._deep_think(
+                "Decide whether this candidate compromise chain actually holds, "
+                "given everything confirmed in this engagement so far. Respond "
+                "JSON only:\n"
+                '{"holds": true/false, "reason": "", "final_impact": '
+                '"rce|auth_bypass|data_exfil|full_compromise", "poc": ""}',
+                context=(
+                    f"## Candidate Pivot: {cand.pivot_name}\n{cand.description}\n\n"
+                    f"## Finding A\n{cand.finding_a}\n\n## Finding B\n{cand.finding_b}\n"
+                ),
+            )
+            decision = self._parse_json_response(verdict_text)
+
+            if decision.get("holds"):
+                chain_finding = Finding(
+                    agent=self.name,
+                    title=f"Compromise Chain: {cand.pivot_name}",
+                    severity=Severity.CRITICAL,
+                    evidence=f"{cand.finding_a} + {cand.finding_b} -> {cand.pivot_name}",
+                    observed=cand.description,
+                    inferred=decision.get("reason", ""),
+                    finding_type="chain",
+                    chain_steps=[cand.finding_a, cand.finding_b],
+                    chain_evidence={
+                        "final_impact": decision.get("final_impact", cand.pivot_name),
+                        "final_poc":    decision.get("poc", ""),
+                        "pivot_logic":  decision.get("reason", ""),
+                    },
+                    confidence=Confidence.HIGH,
+                    confirmed=True,
+                    confirmed_by=["pivot_scanner", "opus_chain_reasoning"],
+                    target=context.target,
+                )
+                try:
+                    chain_finding.validate()
+                    context.findings.append(chain_finding)
+                    await context.session.add_finding(chain_finding.to_dict())
+                    audit.finding(self.name, chain_finding.title, "Critical", 0.0, True, "High")
+                    if gate is not None:
+                        gate.report_chain_event(event_id, CoverageStatus.CONFIRMED)
+                except ValueError as e:
+                    audit.error(self.name, f"Chain finding rejected: {e}")
+                    if gate is not None:
+                        gate.report_chain_event(
+                            event_id, CoverageStatus.SKIPPED,
+                            reason=f"pivot held but finding failed validation: {e}",
+                        )
+            else:
+                reason = decision.get("reason") or "investigated, pivot didn't hold"
+                audit.info(self.name, f"CANDIDATE_CHAIN skipped: {cand.pivot_name} — {reason}")
+                if gate is not None:
+                    gate.report_chain_event(event_id, CoverageStatus.SKIPPED, reason=reason)
 
     # ── Think step (Claude reasons about what to do next) ─────────────────
 
@@ -566,7 +673,10 @@ class BaseAgent:
                     '  "observed": "", "inferred": "",\n'
                     '  "poc": "", "impact": "", "remediation": "",\n'
                     '  "confidence": "High|Medium|Low",\n'
-                    '  "confirmed": false, "confirmed_by": []\n'
+                    '  "confirmed": false, "confirmed_by": [],\n'
+                    '  "primitive": "short tag matching a skill\'s `primitive` frontmatter '
+                    'field if this finding matches a cataloged vuln_class, else empty — '
+                    'used for Part 4 chain detection"\n'
                     "}"
                 ),
             }
@@ -604,6 +714,7 @@ class BaseAgent:
                 confidence  = Confidence(fd.get("confidence", "Low")),
                 confirmed   = fd.get("confirmed", False),
                 confirmed_by= fd.get("confirmed_by", []),
+                primitive   = fd.get("primitive", ""),
                 target      = context.target,
             )
         except (KeyError, ValueError) as e:

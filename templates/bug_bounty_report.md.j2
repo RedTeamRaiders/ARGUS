@@ -22,9 +22,46 @@
 
 ### Highest-Impact Findings
 
-{% for f in findings | sort(attribute="cvss_score", reverse=True) | list | first(3) %}
+{% for f in (findings | sort(attribute="cvss_score", reverse=True) | list)[:3] %}
 {{ loop.index }}. **{{ f.severity.value }}** — {{ f.title }}
 {% endfor %}
+
+---
+
+## Coverage Matrix
+
+*Enforced by shared/coverage_gate.py — every applicable category has a terminal status; nothing is silently skipped.*
+
+| Category | Mode | Status | Findings | Reason |
+|----------|------|--------|----------|--------|
+{% for row in meta.coverage_matrix %}
+| {{ row.category }} | {{ row.mode }} | {{ row.status }} | {{ row.finding_count }} | {{ row.reason or "—" }} |
+{% endfor %}
+
+---
+
+## Compromise Chains
+
+{% if meta.compromise_chains %}
+*Deterministic pivot detection (shared/pivot_scanner.py) + Opus reasoning confirmed the following chains:*
+
+{% for c in meta.compromise_chains %}
+### {{ c.title }}
+
+**Steps:** {{ c.chain_steps | join(" → ") }}
+**Final Impact:** {{ c.chain_evidence.get("final_impact", "N/A") }}
+
+**Pivot Logic:** {{ c.chain_evidence.get("pivot_logic", "") }}
+
+**PoC:**
+```
+{{ c.chain_evidence.get("final_poc", "See referenced findings above.") }}
+```
+
+{% endfor %}
+{% else %}
+*No confirmed compromise chains for this engagement — see Coverage Matrix for candidate pivots that were investigated and didn't hold.*
+{% endif %}
 
 ---
 

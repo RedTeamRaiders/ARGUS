@@ -546,6 +546,42 @@ p { margin: 6px 0; }
 </div>
 {% endif %}
 
+{# ── Coverage Matrix (Part 2 — shared/coverage_gate.py) ────────────────── #}
+{% if meta.coverage_matrix %}
+<div class="section page-break" id="coverage-matrix">
+  <div class="section-header">
+    <div class="section-number">{{ findings_sorted | length + 5 }}</div>
+    <h2>Coverage Matrix</h2>
+  </div>
+  <p style="color:#555;margin-bottom:14px;">Every applicable category has a terminal status — enforced by shared/coverage_gate.py, nothing is silently skipped.</p>
+  <table>
+    <tr><th>Category</th><th>Mode</th><th>Status</th><th>Findings</th><th>Reason</th></tr>
+    {% for row in meta.coverage_matrix %}
+    <tr><td>{{ row.category }}</td><td>{{ row.mode }}</td><td>{{ row.status }}</td><td>{{ row.finding_count }}</td><td>{{ row.reason or "—" }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{# ── Compromise Chains (Part 4 — shared/pivot_scanner.py) ──────────────── #}
+{% if meta.compromise_chains %}
+<div class="section page-break" id="compromise-chains">
+  <div class="section-header">
+    <div class="section-number">{{ findings_sorted | length + 6 }}</div>
+    <h2>Compromise Chains</h2>
+  </div>
+  {% for c in meta.compromise_chains %}
+  <div class="extra-section">
+    <h3>{{ c.title }}</h3>
+    <p><strong>Steps:</strong> {{ c.chain_steps | join(" → ") }}</p>
+    <p><strong>Final Impact:</strong> {{ c.chain_evidence.get("final_impact", "N/A") }}</p>
+    <p><strong>Pivot Logic:</strong> {{ c.chain_evidence.get("pivot_logic", "") }}</p>
+    <pre>{{ c.chain_evidence.get("final_poc", "See referenced findings above.") }}</pre>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {# ── Agent-Specific Extra Sections ─────────────────────────────────────── #}
 {% for s in meta.get('sections', []) %}
 <div class="section page-break" id="extra-{{ loop.index }}">
