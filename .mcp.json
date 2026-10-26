@@ -59,6 +59,10 @@
         "CENSYS_API_ID": "${CENSYS_API_ID}",
         "CENSYS_API_SECRET": "${CENSYS_API_SECRET}"
       }
+    },
+    "burp": {
+      "type": "sse",
+      "url": "http://127.0.0.1:9876/"
     }
   }
 }
