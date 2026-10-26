@@ -88,6 +88,17 @@ class RedTeamAgent(BaseAgent):
         # Phase 4 — Detection gap analysis
         await self._analyze_detection_gaps(campaign, context)
 
+        # Phase 5 — Chain-exploitation review (kill-chain synthesis across
+        # the whole campaign — this is the entire premise of a red team
+        # engagement, so it must run before findings are finalized)
+        chain_finding = await self._synthesize_attack_chain(
+            context, extra_context=f"Campaign objective: {objective}",
+        )
+        if chain_finding:
+            context.findings.append(chain_finding)
+            if chain_finding.severity.value == "Critical":
+                campaign.crown_jewels_reached = True
+
         # Convert to findings
         findings = []
         for f in context.findings:
@@ -166,9 +177,12 @@ class RedTeamAgent(BaseAgent):
             if result:
                 thought = await self._think(context)
                 analysis = await self._analyze(thought, result, context)
-                context.tech_stack.update(analysis.new_context.get("tech", {}))
+                context.update_from_analysis(analysis)
                 phase.ttps_used.append("T1596")  # Search Open Technical Databases
-                await context.session.add_tool_output("shodan", result)
+                await context.session.add_tool_output(
+                    "shodan", target,
+                    result if isinstance(result, dict) else {"raw": str(result)},
+                )
         except Exception as e:
             audit.error(self.name, f"Shodan recon failed: {e}")
 
@@ -182,7 +196,7 @@ class RedTeamAgent(BaseAgent):
         # Simulate initial access based on campaign plan
         # In practice: phishing simulation, CVE exploitation, or valid account use
         # We use nmap + nuclei to identify the most realistic initial access vector
-        await self.rate_limiter.wait()
+        await self._rate_limiter.wait()
 
         try:
             import tool_wrappers.nmap as nmap_wrapper
@@ -192,12 +206,12 @@ class RedTeamAgent(BaseAgent):
                 analysis = await self._analyze(thought, result, context)
                 context.open_ports = result.get("ports", [])
                 phase.ttps_used.append("T1190")  # Exploit Public-Facing Application
-                await context.session.add_tool_output("nmap_initial_access", result)
+                await context.session.add_tool_output("nmap_initial_access", target, result)
         except Exception as e:
             audit.error(self.name, f"Initial access recon failed: {e}")
 
         # Check for known CVEs in discovered services
-        await self.rate_limiter.wait()
+        await self._rate_limiter.wait()
         try:
             import tool_wrappers.nuclei as nuclei_wrapper
             result = await nuclei_wrapper.run(target, mode="detect")
@@ -207,8 +221,11 @@ class RedTeamAgent(BaseAgent):
                 for item in result[:5]:
                     if item.get("severity") in ("critical", "high"):
                         phase.ttps_used.append("T1190")
-                        context.interesting["initial_access_cve"] = item.get("template_id", "")
-                await context.session.add_tool_output("nuclei_initial_access", result)
+                        context.interesting.append(f"initial_access_cve: {item.get('template_id', '')}")
+                await context.session.add_tool_output(
+                    "nuclei_initial_access", target,
+                    {"results": result} if isinstance(result, list) else result,
+                )
         except Exception as e:
             audit.error(self.name, f"Nuclei initial access check failed: {e}")
 
@@ -222,7 +239,7 @@ class RedTeamAgent(BaseAgent):
         # Opus drives every decision with red team OPSEC in mind
         max_iterations = 15
         for iteration in range(max_iterations):
-            await self.rate_limiter.wait()
+            await self._rate_limiter.wait()
             thought = await self._think(context)
 
             if thought.dead_end:
@@ -234,16 +251,18 @@ class RedTeamAgent(BaseAgent):
             context.update_from_analysis(analysis)
 
             # Track ATT&CK phases
+            tool_name = thought.next_action.get("tool", "operation")
             tactic = thought.rationale[:10] if thought.rationale else ""
-            if "TA0" in tactic or "T1" in thought.next_action:
-                phase_name = thought.next_action.split(":")[0] if ":" in thought.next_action else "Operation"
-                campaign.phases.append(CampaignPhase(
-                    name=phase_name,
-                    tactic=tactic,
-                    ttps_used=[thought.next_action],
-                ))
+            campaign.phases.append(CampaignPhase(
+                name=tool_name,
+                tactic=tactic,
+                ttps_used=[tool_name],
+            ))
 
-            await context.session.add_tool_output(thought.next_action, result)
+            await context.session.add_tool_output(
+                tool_name, json.dumps(thought.next_action.get("params", {}))[:200],
+                result if isinstance(result, dict) else {"raw": str(result)},
+            )
 
             if analysis.finding:
                 context.findings.append(analysis.finding)
