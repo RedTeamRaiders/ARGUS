@@ -52,6 +52,30 @@ class TestIsXssFinding:
         assert not is_xss_finding(f)
 
 
+# ── already_playwright_verified ──────────────────────────────────────────
+# bug_bounty.py's _xss_pipeline fires its own payloads via Playwright and
+# tags its findings before this gate ever sees them. Re-running a stateless
+# GET replay against a finding that was actually confirmed through a form/
+# POST injection would reject a true positive — must be skipped instead.
+
+class TestAlreadyPlaywrightVerified:
+
+    def test_dialog_confirmation_marker_is_recognized(self):
+        from shared.xss_verification import already_playwright_verified
+        f = _xss_finding(confirmed_by=["playwright_dialog_confirmation"])
+        assert already_playwright_verified(f)
+
+    def test_own_gate_marker_is_recognized(self):
+        from shared.xss_verification import already_playwright_verified
+        f = _xss_finding(confirmed_by=["playwright_headless_verification"])
+        assert already_playwright_verified(f)
+
+    def test_llm_self_report_alone_is_not_recognized(self):
+        from shared.xss_verification import already_playwright_verified
+        f = _xss_finding(confirmed_by=["sonnet_self_report"])
+        assert not already_playwright_verified(f)
+
+
 # ── _extract_payload ────────────────────────────────────────────────────
 
 class TestExtractPayload:
@@ -153,3 +177,17 @@ class TestApplyXssVerificationGate:
         assert f.confirmed is False
         assert f.confidence == Confidence.LOW
         assert "REJECTED" in f.validation_status
+
+    async def test_already_playwright_verified_finding_is_not_rechecked(self):
+        # Simulates bug_bounty.py's _xss_pipeline output flowing through the
+        # same gate call as its Phase 3 generic-loop findings: this finding
+        # must pass through unchanged, and verify_xss_finding must never be
+        # invoked for it (a stateless GET replay can't reproduce a form/POST
+        # injection and would wrongly reject a true positive).
+        from shared.xss_verification import apply_xss_verification_gate
+        f = _xss_finding(confirmed_by=["playwright_dialog_confirmation"])
+        mock_verify = AsyncMock()
+        with patch("shared.xss_verification.verify_xss_finding", new=mock_verify):
+            out = await apply_xss_verification_gate([f])
+        assert out == [f]
+        mock_verify.assert_not_called()

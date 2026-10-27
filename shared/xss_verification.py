@@ -43,6 +43,20 @@ def is_xss_finding(finding: Finding) -> bool:
     return "cwe-79" in haystack or "xss" in haystack
 
 
+# Markers left by a pipeline that already fired the payload in a real
+# browser and watched it execute — e.g. bug_bounty.py's _xss_pipeline, which
+# drives its own crawl + canary + PayloadInjector + ExecutionMonitor session
+# before ever creating the Finding. Those findings must NOT be re-verified
+# here: this module's stateless GET-replay (finding.url + finding.parameter)
+# cannot reproduce a form/POST injection, so blindly re-checking a genuinely
+# confirmed finding through the wrong vector would reject a true positive.
+ALREADY_VERIFIED_MARKERS = {"playwright_dialog_confirmation", "playwright_headless_verification"}
+
+
+def already_playwright_verified(finding: Finding) -> bool:
+    return bool(ALREADY_VERIFIED_MARKERS & set(finding.confirmed_by))
+
+
 @dataclass
 class VerificationResult:
     verified: bool
@@ -148,11 +162,16 @@ async def apply_xss_verification_gate(findings: list[Finding]) -> list[Finding]:
     proof; unverified ones are downgraded and dropped from the returned list
     (they were already persisted to session.py's store at creation time —
     same "rejected but not deleted" pattern as shared/validation_gate.py).
-    Non-XSS findings pass through untouched.
+    Non-XSS findings pass through untouched — as do XSS findings that
+    already carry a real browser confirmation from elsewhere (see
+    already_playwright_verified() above), so this is safe to call on a
+    finding set that mixes generic-ReAct-loop findings with a dedicated
+    pipeline's own already-verified ones (e.g. bug_bounty.py's
+    _xss_pipeline alongside its Phase 3 generic loop).
     """
     out: list[Finding] = []
     for f in findings:
-        if not is_xss_finding(f):
+        if not is_xss_finding(f) or already_playwright_verified(f):
             out.append(f)
             continue
 

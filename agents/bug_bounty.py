@@ -138,6 +138,16 @@ class BugBountyAgent(BaseAgent):
         coverage_meta = reporter.finalize(context.findings, {}, gate=self._coverage_gate)
         await session.set_context("coverage_matrix", coverage_meta["coverage_matrix"])
 
+        # Mandatory Playwright headless verification for any XSS finding
+        # (agents/CLAUDE.md critical rule 5). Phase 4's _xss_pipeline above
+        # already fires its payloads in a real browser and tags its own
+        # findings "playwright_dialog_confirmation" — this gate skips those
+        # (see shared.xss_verification.already_playwright_verified) and only
+        # catches XSS claims from elsewhere, e.g. Phase 3's generic ReAct
+        # loop materializing a dalfox/nuclei hit with no independent check.
+        from shared.xss_verification import apply_xss_verification_gate
+        context.findings = await apply_xss_verification_gate(context.findings)
+
         # Part 5 — reportability validation gate, bug-bounty VRT-style bar.
         from shared.validation_gate import apply_validation_gate
         context.findings = await apply_validation_gate(context.findings, scope, "bug_bounty", self._deep_think)
