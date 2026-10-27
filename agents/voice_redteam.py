@@ -132,6 +132,9 @@ class VoiceRedTeamAgent(BaseAgent):
 
         await self._analyze_voice_attack_chains(context, session)
 
+        from shared.xss_verification import apply_xss_verification_gate
+        context["findings"] = await apply_xss_verification_gate(context["findings"])
+
         audit.complete(self.name, target, len(context["findings"]))
         return context["findings"]
 
