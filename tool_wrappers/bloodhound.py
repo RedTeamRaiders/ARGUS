@@ -103,6 +103,12 @@ async def _query_bloodhound(
             except Exception:
                 pass
 
+        result["parsed"] = (
+            [{"type": "kerberoastable", **k} for k in result["kerberoastable"]]
+            + [{"type": "asreproastable", "name": n} for n in result["asreproastable"]]
+            + [{"type": "da_shortest_path", "path": p} for p in result["da_shortest_path"]]
+        )
+        result["raw_output"] = json.dumps(result, default=str)[:4000]
         return result
 
 

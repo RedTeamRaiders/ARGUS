@@ -398,3 +398,45 @@ class TestAuthGate:
         ]
         for stmt in invalid:
             assert not _validate_authorization_statement(stmt), f"Should be invalid: {stmt}"
+
+
+# ── BaseAgent._normalize_tool_result ───────────────────────────────────────
+# Regression coverage for the _act() routing bug: a tool_wrappers/*.py module
+# returning a bare list[dict] (the majority convention — gobuster, nuclei,
+# ffuf, hydra, searchsploit, ...) was being discarded into a stringified
+# raw_output with parsed=[], making _analyze()'s Haiku triage blind to it.
+
+class TestNormalizeToolResult:
+
+    def test_bare_list_becomes_parsed(self):
+        from agents.base_agent import BaseAgent
+        records = [{"path": "/admin", "status": 200}, {"path": "/backup", "status": 403}]
+        result = BaseAgent._normalize_tool_result("gobuster", records)
+        assert result["parsed"] == records
+        assert result["error"] is None
+        assert "admin" in result["raw_output"]
+
+    def test_dict_without_parsed_gets_empty_list_default(self):
+        from agents.base_agent import BaseAgent
+        result = BaseAgent._normalize_tool_result("bloodhound", {"collection_complete": True})
+        assert result["parsed"] == []
+        assert result["tool"] == "bloodhound"
+
+    def test_dict_with_parsed_is_passed_through_unchanged(self):
+        from agents.base_agent import BaseAgent
+        records = [{"port": "22", "service": "ssh"}]
+        src = {"ports": records, "parsed": records, "os": "Linux"}
+        result = BaseAgent._normalize_tool_result("nmap", src)
+        assert result["parsed"] == records
+        assert result["os"] == "Linux"   # existing keys preserved for hand-coded callers
+
+    def test_dict_raw_key_promoted_to_raw_output(self):
+        from agents.base_agent import BaseAgent
+        result = BaseAgent._normalize_tool_result("crackmapexec", {"raw": "[+] login ok", "parsed": []})
+        assert result["raw_output"] == "[+] login ok"
+
+    def test_non_dict_non_list_falls_back_safely(self):
+        from agents.base_agent import BaseAgent
+        result = BaseAgent._normalize_tool_result("mystery_tool", None)
+        assert result["parsed"] == []
+        assert result["error"] is None

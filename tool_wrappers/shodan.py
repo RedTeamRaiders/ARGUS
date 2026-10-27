@@ -36,6 +36,18 @@ async def run(target: str, query: str = "") -> dict:
 
 
 def _parse_host(host: dict) -> dict:
+    services = [
+        {
+            "type":      "service",
+            "port":      svc.get("port"),
+            "transport": svc.get("transport"),
+            "product":   svc.get("product", ""),
+            "version":   svc.get("version", ""),
+            "banner":    svc.get("data", "")[:500],
+            "cpe":       svc.get("cpe", []),
+        }
+        for svc in host.get("data", [])
+    ]
     return {
         "ip":           host.get("ip_str", ""),
         "hostnames":    host.get("hostnames", []),
@@ -44,33 +56,27 @@ def _parse_host(host: dict) -> dict:
         "os":           host.get("os", ""),
         "ports":        host.get("ports", []),
         "vulns":        list(host.get("vulns", {}).keys()),
-        "services": [
-            {
-                "port":      svc.get("port"),
-                "transport": svc.get("transport"),
-                "product":   svc.get("product", ""),
-                "version":   svc.get("version", ""),
-                "banner":    svc.get("data", "")[:500],
-                "cpe":       svc.get("cpe", []),
-            }
-            for svc in host.get("data", [])
-        ],
+        "services":     services,
+        "parsed":       services,
         "last_updated": host.get("last_update", ""),
     }
 
 
 def _parse_search(results: dict) -> dict:
+    matches = [
+        {
+            "type":    "search_match",
+            "ip":      m.get("ip_str", ""),
+            "port":    m.get("port"),
+            "banner":  m.get("data", "")[:300],
+            "product": m.get("product", ""),
+            "version": m.get("version", ""),
+            "hostnames": m.get("hostnames", []),
+        }
+        for m in results.get("matches", [])[:20]
+    ]
     return {
         "total":   results.get("total", 0),
-        "matches": [
-            {
-                "ip":      m.get("ip_str", ""),
-                "port":    m.get("port"),
-                "banner":  m.get("data", "")[:300],
-                "product": m.get("product", ""),
-                "version": m.get("version", ""),
-                "hostnames": m.get("hostnames", []),
-            }
-            for m in results.get("matches", [])[:20]
-        ],
+        "matches": matches,
+        "parsed":  matches,
     }

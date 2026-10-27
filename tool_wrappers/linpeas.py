@@ -145,6 +145,13 @@ def _parse_output(output: str, os_type: str) -> dict:
         if "cron" in line_lower and ("root" in line_lower or "/etc/cron" in line_lower):
             result["cron_jobs"].append(line.strip())
 
+    result["raw_output"] = result["raw"]
+    result["parsed"] = (
+        [{"type": "sudo_rights", "detail": x} for x in result["sudo_rights"]]
+        + [{"type": "suid_binary", "detail": x} for x in result["suid_binaries"]]
+        + [{"type": "credential", "detail": x} for x in result["credentials"]]
+        + [{"type": "cron_job", "detail": x} for x in result["cron_jobs"]]
+    )
     return result
 
 

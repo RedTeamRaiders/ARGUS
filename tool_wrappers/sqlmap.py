@@ -101,4 +101,17 @@ def _parse_output(output: str) -> dict:
     technique_matches = re.findall(r"Type: (.+)", output)
     result["techniques"] = list(set(technique_matches))
 
+    result["raw_output"] = result["raw"]
+    if result["injectable_params"]:
+        result["parsed"] = [
+            {"type": "sqli", "param": p["param"], "technique": p["type"],
+             "db_type": result["db_type"]}
+            for p in result["injectable_params"]
+        ]
+    elif result["injectable"]:
+        result["parsed"] = [{"type": "sqli", "db_type": result["db_type"],
+                              "techniques": result["techniques"]}]
+    else:
+        result["parsed"] = []
+
     return result

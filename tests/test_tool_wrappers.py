@@ -240,3 +240,68 @@ class TestCrackMapExecWrapper:
         with patch("shutil.which", return_value=None):
             result = await crackmapexec.run(target="192.168.1.1")
         assert isinstance(result, dict)
+
+    def test_parsed_field_present_on_success(self):
+        from tool_wrappers.crackmapexec import _parse_output
+        sample = "[+] 192.168.1.100 445 DC01 [+] CORP\\administrator:Password123 (Pwn3d!)"
+        result = _parse_output(sample, "smb")
+        assert isinstance(result["parsed"], list)
+        assert any(r["type"] == "valid_credentials" for r in result["parsed"])
+        assert result["raw_output"] == result["raw"]
+
+
+# ── "parsed" field regression — dict-returning wrappers ────────────────────
+# These wrappers return a single custom dict (not a bare list), so the
+# generic _act() routing fix in base_agent.py doesn't help them on its own —
+# each one needs its own "parsed" key added. See agents/base_agent.py's
+# _normalize_tool_result and its docstring for the full picture.
+
+class TestParsedFieldOnDictWrappers:
+
+    def test_nmap_parsed_matches_ports(self):
+        from tool_wrappers.nmap import _parse_grepable
+        sample = (FIXTURES / "nmap" / "sample_output.txt").read_text()
+        result = _parse_grepable(sample)
+        assert result["parsed"] == result["ports"]
+        assert result["raw_output"] == result["raw"]
+
+    def test_sqlmap_parsed_reflects_injectable_param(self):
+        from tool_wrappers.sqlmap import _parse_output
+        sample = (
+            "Parameter: id (GET)\n"
+            "    Type: boolean-based blind\n"
+            "    Payload: id=1 AND 1=1\n"
+            "back-end DBMS: MySQL >= 5.0\n"
+            "the parameter 'id' is injectable\n"
+        )
+        result = _parse_output(sample)
+        assert result["parsed"]
+        assert result["parsed"][0]["param"] == "id"
+
+    def test_sqlmap_parsed_empty_when_not_injectable(self):
+        from tool_wrappers.sqlmap import _parse_output
+        result = _parse_output("testing connection to the target URL\n")
+        assert result["parsed"] == []
+
+    def test_shodan_host_parsed_matches_services(self):
+        from tool_wrappers.shodan import _parse_host
+        host = {
+            "ip_str": "1.2.3.4",
+            "data": [{"port": 22, "transport": "tcp", "product": "OpenSSH", "data": "SSH-2.0"}],
+        }
+        result = _parse_host(host)
+        assert result["parsed"] == result["services"]
+        assert result["parsed"][0]["port"] == 22
+
+    def test_shodan_search_parsed_matches_matches(self):
+        from tool_wrappers.shodan import _parse_search
+        results = {"total": 1, "matches": [{"ip_str": "1.2.3.4", "port": 443}]}
+        result = _parse_search(results)
+        assert result["parsed"] == result["matches"]
+
+    def test_linpeas_parsed_combines_findings(self):
+        from tool_wrappers.linpeas import _parse_output
+        sample = "/usr/bin/foo SUID\npassword=hunter2\n(root) NOPASSWD: ALL\n"
+        result = _parse_output(sample, "linux")
+        assert isinstance(result["parsed"], list)
+        assert result["raw_output"] == result["raw"]

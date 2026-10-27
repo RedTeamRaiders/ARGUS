@@ -109,4 +109,10 @@ def _parse_output(output: str, service: str) -> dict:
             if parts:
                 result["users"].append(parts[0])
 
+    result["raw_output"] = result["raw"]
+    result["parsed"] = (
+        ([{"type": "valid_credentials", "admin": result["admin"]}] if result["valid_credentials"] else [])
+        + [{"type": "share", **s} for s in result["shares"]]
+        + [{"type": "user", "name": u} for u in result["users"]]
+    )
     return result

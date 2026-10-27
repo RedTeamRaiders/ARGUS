@@ -89,4 +89,6 @@ def _parse_grepable(output: str) -> dict:
         if os_match:
             result["os"] = os_match.group(1)
 
+    result["raw_output"] = result["raw"]
+    result["parsed"] = result["ports"]
     return result

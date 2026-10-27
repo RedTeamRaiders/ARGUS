@@ -687,19 +687,52 @@ class BaseAgent:
             audit.tool_call(agent=self.name, tool=tool_name,
                             command=str(params)[:80], target=target,
                             duration_s=round(duration, 2), success=True)
-            await context.session.add_tool_output(
-                tool_name, str(params),
-                result if isinstance(result, dict) else {"raw": str(result)},
-            )
-            return result if isinstance(result, dict) else {
-                "tool": tool_name, "parsed": [], "raw_output": str(result), "error": None
-            }
+            normalized = self._normalize_tool_result(tool_name, result)
+            await context.session.add_tool_output(tool_name, str(params), normalized)
+            return normalized
         except Exception as e:
             duration = time.monotonic() - t0
             audit.tool_call(agent=self.name, tool=tool_name,
                             command=str(params)[:80], target=target,
                             duration_s=round(duration, 2), success=False, error=str(e))
             return {"tool": tool_name, "parsed": [], "raw_output": "", "error": str(e)}
+
+    @staticmethod
+    def _normalize_tool_result(tool_name: str, result: Any) -> dict:
+        """
+        Every tool_wrappers/*.py module returns either:
+          (a) a list[dict] of structured records — the parsed findings
+              themselves (gobuster, nuclei, ffuf, hydra, searchsploit, ...), or
+          (b) a dict of tool-specific fields, some of which (nmap's "ports",
+              sqlmap's "injectable_params", shodan's "services", ...) are
+              themselves structured record lists.
+
+        _analyze()'s Haiku triage only ever reads result.get("parsed", []) —
+        so case (a) was previously discarded into a stringified raw_output
+        with parsed=[], making triage blind to most tool output. This
+        normalizes both shapes into {"tool", "parsed", "raw_output", "error"}
+        without dropping any of a dict-wrapper's existing keys (hand-written
+        phase methods in pentest.py etc. still read their own custom fields
+        directly off the same dict).
+        """
+        if isinstance(result, dict):
+            result.setdefault("tool", tool_name)
+            if "raw_output" not in result:
+                # Older wrappers use "raw" (subprocess stdout) for this.
+                result["raw_output"] = result.get("raw", "") or json.dumps(
+                    {k: v for k, v in result.items() if k != "parsed"}, default=str
+                )[:4000]
+            result.setdefault("parsed", [])
+            result.setdefault("error", None)
+            return result
+        if isinstance(result, list):
+            return {
+                "tool": tool_name,
+                "parsed": result,
+                "raw_output": json.dumps(result, default=str)[:4000],
+                "error": None,
+            }
+        return {"tool": tool_name, "parsed": [], "raw_output": str(result), "error": None}
 
     # ── Analyze step — Haiku triage, Sonnet only for findings ─────────────
 
