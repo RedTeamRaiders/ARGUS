@@ -844,7 +844,10 @@ class BaseAgent:
                     '  "confirmed": false, "confirmed_by": [],\n'
                     '  "primitive": "short tag matching a skill\'s `primitive` frontmatter '
                     'field if this finding matches a cataloged vuln_class, else empty — '
-                    'used for Part 4 chain detection"\n'
+                    'used for Part 4 chain detection",\n'
+                    '  "url": "exact URL this was found at, if any — required to replay/verify "'
+                    '"the finding later (e.g. XSS Playwright verification); empty if not URL-based",\n'
+                    '  "parameter": "the specific GET/POST parameter name that is vulnerable, if any"\n'
                     "}"
                 ),
             }
@@ -884,6 +887,8 @@ class BaseAgent:
                 confirmed_by= fd.get("confirmed_by", []),
                 primitive   = fd.get("primitive", ""),
                 target      = context.target,
+                url         = fd.get("url", ""),
+                parameter   = fd.get("parameter", ""),
             )
         except (KeyError, ValueError) as e:
             audit.error(self.name, f"Finding materialize error: {e}")

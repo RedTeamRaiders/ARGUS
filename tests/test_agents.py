@@ -440,3 +440,61 @@ class TestNormalizeToolResult:
         result = BaseAgent._normalize_tool_result("mystery_tool", None)
         assert result["parsed"] == []
         assert result["error"] is None
+
+
+# ── BaseAgent._materialize_finding_with_sonnet — url/parameter capture ────
+# Without these, a Finding from the generic ReAct loop (pentest.py,
+# red_team.py, ...) never carries a replayable URL — making
+# shared/xss_verification.py's mandatory Playwright gate a permanent no-op
+# for every XSS claim that path produces. See agents/pentest.py's run().
+
+class TestMaterializeFindingUrlCapture:
+
+    async def test_url_and_parameter_are_captured_from_sonnet_response(self):
+        from agents.base_agent import AgentContext, BaseAgent, Thought
+
+        agent = BaseAgent.__new__(BaseAgent)
+        agent.name = "pentest"
+        agent._rate_limiter = AsyncMock()
+        agent._system_prompt = "system prompt"
+        agent._skill = "skill"
+
+        thought = Thought(
+            observation="", hypothesis="reflected XSS in q", rationale="",
+            next_action={"tool": "dalfox", "params": {}, "reason": ""},
+            what_i_expect="",
+        )
+        triage = {"summary": "reflected", "candidate_class": "XSS"}
+
+        fake_response = MagicMock()
+        fake_response.content = [MagicMock(text=json.dumps({
+            "title": "Reflected XSS in q",
+            "severity": "High",
+            "cwe": "CWE-79",
+            "owasp": "A03",
+            "evidence": "dalfox: payload reflected unescaped",
+            "observed": "payload reflected",
+            "inferred": "",
+            "poc": "<script>alert(1)</script>",
+            "confirmed": True,
+            "confirmed_by": ["dalfox"],
+            "url": "https://target.test/search",
+            "parameter": "q",
+        }))]
+        fake_response.usage = MagicMock(input_tokens=10, output_tokens=10, cache_read_input_tokens=0)
+
+        session = AsyncMock()
+        ctx = AgentContext(
+            target="target.test",
+            scope=Scope(["target.test"]),
+            session=session,
+            auth=MagicMock(),
+        )
+
+        with patch("agents.base_agent.client.messages.create", return_value=fake_response):
+            finding = await agent._materialize_finding_with_sonnet(
+                thought, {"parsed": [], "raw_output": "dalfox output"}, "[]", ctx, triage,
+            )
+
+        assert finding.url == "https://target.test/search"
+        assert finding.parameter == "q"
