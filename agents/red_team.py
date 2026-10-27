@@ -99,6 +99,14 @@ class RedTeamAgent(BaseAgent):
             if chain_finding.severity.value == "Critical":
                 campaign.crown_jewels_reached = True
 
+        # Mandatory Playwright headless verification for any XSS finding
+        # (agents/CLAUDE.md critical rule 5) — must run before the validate()
+        # loop below so an unverified XSS claim never reaches the report on
+        # nothing but an LLM's self-reported `confirmed` flag. Same wiring as
+        # agents/pentest.py's run(); see shared/xss_verification.py.
+        from shared.xss_verification import apply_xss_verification_gate
+        context.findings = await apply_xss_verification_gate(context.findings)
+
         # Convert to findings
         findings = []
         for f in context.findings:

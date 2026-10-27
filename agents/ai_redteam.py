@@ -210,6 +210,15 @@ class AIRedTeamAgent(BaseAgent):
 
         await self._analyze_attack_chains(context, session)
 
+        # Mandatory Playwright headless verification for any XSS finding
+        # (agents/CLAUDE.md critical rule 5) — e.g. an LLM-generated-content
+        # XSS reached via indirect prompt injection and rendered unescaped
+        # in a chat UI. Non-XSS findings (the vast majority here) pass
+        # through untouched. Same wiring as agents/pentest.py's run();
+        # see shared/xss_verification.py.
+        from shared.xss_verification import apply_xss_verification_gate
+        context["findings"] = await apply_xss_verification_gate(context["findings"])
+
         audit.complete(self.name, target, len(context["findings"]))
         return context["findings"]
 
