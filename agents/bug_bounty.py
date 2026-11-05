@@ -22,7 +22,6 @@ from config import (
     ANTHROPIC_API_KEY, DATA_DIR, MODEL_DEEP, MODEL_PARSE, MODEL_REASON,
     SKILLS_DIR,
 )
-from shared.auth_gate import AuthRecord
 from shared.coverage_gate import CoverageGate, CoverageStatus
 from shared.logger import audit
 from shared.manifests.owasp_top10 import build_manifest
@@ -69,7 +68,7 @@ class BugBountyAgent(BaseAgent):
         self,
         target:     str,
         scope:      Scope,
-        auth:       AuthRecord,
+        auth:       dict,
         session:    Session,
         login_url:  str = "",
         username:   str = "",

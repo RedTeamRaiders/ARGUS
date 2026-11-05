@@ -21,6 +21,6 @@ Scaffolds a new ARGUS sub-agent following all project conventions.
 6. Add minimal test in `tests/test_agents.py`
 
 ## Guardrails
-- Never skip auth_gate integration — call `require_authorization()` at agent start
+- No authorization gate — agents run directly against the Scope they're given. Still check `context.scope.contains(target)` before any tool call (enforced centrally in `base_agent._act`, not per-agent).
 - Must call `Finding.validate()` on every finding before returning
 - System prompt must include: "You are a senior [role]. Think before acting."

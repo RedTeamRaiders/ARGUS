@@ -2,13 +2,6 @@
 
 Core infrastructure used by all agents.
 
-## auth_gate.py
-MUST be called before any active agent runs. Collects target, scope, authorization.
-```python
-from shared.auth_gate import require_authorization
-scope = await require_authorization()  # raises if user doesn't confirm
-```
-
 ## session.py
 SQLite-backed session store. Persists findings, tool outputs, mental model state.
 ```python

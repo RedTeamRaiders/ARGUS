@@ -40,8 +40,7 @@ python -c "
 import asyncio
 from agents.<agent_module> import <AgentClass>
 from shared.session import Scope, Session
-from shared.auth_gate import AuthRecord
-# ... setup and run
+# ... setup and run (no authorization gate — pass target/scope directly)
 "
 ```
 

@@ -16,7 +16,7 @@ Runs an ARGUS agent against a safe lab target and validates output.
 
 ## Process — Integration Mode
 1. Confirm target is a local lab (DVWA, HackTheBox, local VM)
-2. Run auth_gate with test authorization string
+2. Confirm target falls within the Scope passed to the agent (no authorization gate — Scope.contains() is the only boundary)
 3. Execute agent against target with verbose logging
 4. Review: does agent reason between steps or run tools blindly?
 5. Review: are findings verified before reporting?

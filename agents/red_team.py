@@ -19,7 +19,6 @@ import anthropic
 
 from agents.base_agent import BaseAgent, AgentContext
 from config import ANTHROPIC_API_KEY, MODEL_DEEP, MODEL_REASON
-from shared.auth_gate import AuthRecord
 from shared.logger import audit
 from shared.reporter import Confidence, Finding, Severity
 from shared.session import Scope, Session
@@ -59,7 +58,7 @@ class RedTeamAgent(BaseAgent):
         self,
         target:      str,
         scope:       Scope,
-        auth:        AuthRecord,
+        auth:        dict,
         session:     Session,
         objective:   str = "demonstrate persistent domain access",
         target_data: str = "",  # what to "exfiltrate" (demonstrate access to)

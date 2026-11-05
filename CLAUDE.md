@@ -10,14 +10,14 @@ AI-powered security agent that behaves like a human pentester, not a DAST scanne
 
 ## Architecture
 - `agents/`          — 7 sub-agents, each has a skill file and system prompt
-- `shared/`          — auth_gate, session store, finding schema, reporter, audit logger
+- `shared/`          — session store, finding schema, reporter, audit logger
 - `tool_wrappers/`   — external tools: raw output → structured JSON only
 - `skills/`          — agent methodology files loaded into system prompt at runtime
 - `prompts/`         — Claude system prompts per agent
 - `.mcp.json`        — all MCP server configurations
 
 ## Critical Rules
-1. `shared/auth_gate.py` MUST pass before ANY active agent runs — no exceptions
+1. No authorization gate is enforced — operators are trusted to confirm authorization out of band. `Scope.contains()` (shared/session.py) is still checked on every tool call in `base_agent._act` — agents only act within the target/scope the operator entered.
 2. Every finding MUST have an `evidence` field containing direct tool output
 3. Tool wrappers return structured JSON only — never pass raw text to Claude
 4. Critical/High findings require 2+ independent tool confirmations

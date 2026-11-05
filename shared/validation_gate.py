@@ -64,9 +64,8 @@ class ValidationResult:
 
 def check_scope(finding: Finding, scope: Scope) -> bool:
     """
-    Criterion 2 — cross-checked against session.py's Scope.contains(),
-    the same scope object enforced by shared/auth_gate.py. Never
-    reimplemented here.
+    Criterion 2 — cross-checked against session.py's Scope.contains().
+    Never reimplemented here.
     """
     target = finding.target or finding.url
     if not target:

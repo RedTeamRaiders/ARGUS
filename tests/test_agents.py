@@ -25,19 +25,6 @@ def scope():
     return Scope(["192.168.1.0/24", "example.com"], ["192.168.1.1"])
 
 
-@pytest.fixture
-def auth_record():
-    from shared.auth_gate import AuthRecord
-    return AuthRecord(
-        operator="test_operator",
-        target="example.com",
-        scope=Scope(["example.com"]),
-        engagement_type="Penetration Test",
-        authorization_statement="I have written authorization to test example.com",
-        authorized_at="2026-05-20T00:00:00+00:00",
-    )
-
-
 @pytest_asyncio.fixture
 async def session(tmp_path):
     with patch("shared.session.DB_PATH", tmp_path / "test_sessions.db"):
@@ -368,36 +355,6 @@ class TestReporter:
         sorted_findings = sorted(findings)
         assert sorted_findings[0].severity == Severity.CRITICAL
         assert sorted_findings[-1].severity == Severity.LOW
-
-
-# ── Auth Gate Tests ────────────────────────────────────────────────────────
-
-class TestAuthGate:
-
-    def test_valid_authorization_statements(self):
-        from shared.auth_gate import _validate_authorization_statement
-        valid = [
-            "I have permission to test this system",
-            "I have authorization to perform this test",
-            "I am authorized to test example.com",
-            "This is an authorized engagement",
-            "I own this server",
-            "I confirm authorization",
-        ]
-        for stmt in valid:
-            assert _validate_authorization_statement(stmt), f"Should be valid: {stmt}"
-
-    def test_invalid_authorization_statements(self):
-        from shared.auth_gate import _validate_authorization_statement
-        invalid = [
-            "yes",
-            "ok",
-            "let's go",
-            "testing",
-            "i want to test this",
-        ]
-        for stmt in invalid:
-            assert not _validate_authorization_statement(stmt), f"Should be invalid: {stmt}"
 
 
 # ── BaseAgent._normalize_tool_result ───────────────────────────────────────

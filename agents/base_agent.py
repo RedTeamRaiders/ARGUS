@@ -23,7 +23,6 @@ from config import (
     ANTHROPIC_API_KEY, MODEL_PARSE, MODEL_REASON, MODEL_DEEP,
     MAX_RPS, PROMPTS_DIR, SKILLS_DIR,
 )
-from shared.auth_gate import AuthRecord
 from shared.coverage_gate import CoverageStatus
 from shared.logger import audit
 from shared.progress import LiveDashboard
@@ -82,7 +81,7 @@ class AgentContext:
     target:        str
     scope:         Scope
     session:       Session
-    auth:          AuthRecord
+    auth:          dict
 
     tech_stack:    list[str]    = field(default_factory=list)
     open_ports:    list[dict]   = field(default_factory=list)
@@ -195,7 +194,7 @@ class BaseAgent:
         self,
         target: str,
         scope:  Scope,
-        auth:   AuthRecord,
+        auth:   dict,
         session: Session,
     ) -> list[Finding]:
         """

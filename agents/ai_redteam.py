@@ -13,7 +13,6 @@ from typing import Optional
 import anthropic
 
 from agents.base_agent import BaseAgent
-from shared.auth_gate import AuthGate
 from shared.logger import audit
 from shared.reporter import Finding, Severity
 from shared.session import Session
@@ -174,7 +173,6 @@ class AIRedTeamAgent(BaseAgent):
         test_categories: subset of ['prompt_injection', 'jailbreak', 'info_disclosure',
                                     'excessive_agency', 'multi_agent', 'rag'] or None for all
         """
-        AuthGate.require(scope, target)
         audit.start(self.name, target)
 
         context = {

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -16,13 +17,40 @@ from rich.table import Table
 from rich.text import Text
 
 from config import TEMPLATES_DIR
-from shared.auth_gate import AuthRecord, require_authorization
 from shared.logger import audit
 from shared.reporter import Finding, Reporter, Severity
 from shared.session import Scope, Session
 
 console = Console()
 reporter = Reporter()
+
+
+@dataclass
+class EngagementInfo:
+    """
+    Target/scope/operator for one engagement run.
+
+    No authorization gate is enforced here — the operator is trusted to
+    have confirmed authorization out of band before running ARGUS. This
+    class exists purely to carry target/scope/operator metadata through
+    session creation, agent dispatch, and report generation; it replaces
+    the data-carrying role the old AuthRecord played, without any of the
+    validation/confirmation logic that used to gate on it.
+    """
+    operator:          str
+    target:            str
+    scope:             Scope
+    engagement_type:   str
+    scope_description: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "operator":          self.operator,
+            "target":            self.target,
+            "scope":             self.scope.to_dict(),
+            "engagement_type":   self.engagement_type,
+            "scope_description": self.scope_description,
+        }
 
 MENU = {
     "1": ("pentest",      "Penetration Testing",    "Black/White Box — full attack chain"),
@@ -54,10 +82,8 @@ class Orchestrator:
                 await self._run_agent_flow(choice)
 
     async def _run_agent_flow(self, menu_choice: str) -> None:
-        """Full flow: auth gate → agent config → run → report."""
+        """Full flow: collect target/scope → agent config → run → report."""
         agent_name, display_name, _ = MENU[menu_choice]
-        # Map menu choice to the engagement type string so auth gate
-        # skips the redundant "Select engagement type" prompt.
         engagement_type = {
             "1": "Penetration Test",
             "2": "Bug Bounty",
@@ -70,17 +96,13 @@ class Orchestrator:
 
         console.print(f"\n[bold cyan]► {display_name}[/bold cyan]\n")
 
-        try:
-            auth = await require_authorization(agent_name, engagement_type=engagement_type)
-        except Exception as e:
-            console.print(f"\n[bold red]Authorization failed: {e}[/bold red]\n")
-            return
+        engagement = self._collect_engagement_info(engagement_type)
 
-        agent_config = await self._collect_agent_config(agent_name, auth)
+        agent_config = await self._collect_agent_config(agent_name, engagement)
 
         session = await Session.create(
-            target=auth.target,
-            scope=auth.scope,
+            target=engagement.target,
+            scope=engagement.scope,
             agent=agent_name,
         )
 
@@ -88,7 +110,7 @@ class Orchestrator:
         console.print(f"[dim]Starting {display_name}...[/dim]\n")
 
         try:
-            findings = await self._dispatch(agent_name, auth, session, agent_config)
+            findings = await self._dispatch(agent_name, engagement, session, agent_config)
         except KeyboardInterrupt:
             console.print("\n[yellow]Engagement interrupted by operator.[/yellow]")
             findings = await self._load_session_findings(session)
@@ -100,14 +122,43 @@ class Orchestrator:
         await session.close()
 
         if findings:
-            await self._generate_report(agent_name, auth, session, findings)
+            await self._generate_report(agent_name, engagement, session, findings)
         else:
             console.print("\n[dim]No findings to report.[/dim]\n")
+
+    @staticmethod
+    def _collect_engagement_info(engagement_type: str) -> EngagementInfo:
+        """
+        Collect target + scope directly from the operator. No authorization
+        gate — the operator is responsible for having authorization to test
+        whatever they enter here.
+        """
+        operator = Prompt.ask("Operator name", default="ARGUS Operator")
+        target = Prompt.ask("Target (hostname / IP / URL)")
+        extra = Prompt.ask(
+            "Additional in-scope targets (comma-separated, blank for target only)",
+            default="",
+        )
+        exclusions_input = Prompt.ask(
+            "Excluded hosts/paths (comma-separated, blank for none)",
+            default="",
+        )
+        targets = [target] + [t.strip() for t in extra.split(",") if t.strip()]
+        exclusions = [e.strip() for e in exclusions_input.split(",") if e.strip()]
+        scope = Scope(targets=targets, exclusions=exclusions)
+
+        return EngagementInfo(
+            operator=operator,
+            target=target,
+            scope=scope,
+            engagement_type=engagement_type,
+            scope_description=", ".join(targets),
+        )
 
     async def _dispatch(
         self,
         agent_name: str,
-        auth: AuthRecord,
+        engagement: EngagementInfo,
         session: Session,
         config: dict,
     ) -> list[Finding]:
@@ -123,16 +174,16 @@ class Orchestrator:
 
         # Build common kwargs all agents accept
         kwargs = {
-            "target": auth.target,
-            "scope":  auth.scope.to_dict(),
-            "auth":   auth.to_dict(),
+            "target": engagement.target,
+            "scope":  engagement.scope.to_dict(),
+            "auth":   engagement.to_dict(),
             "session": session,
         }
         kwargs.update(config)
 
         return await agent.run(**kwargs)
 
-    async def _collect_agent_config(self, agent_name: str, auth: AuthRecord) -> dict:
+    async def _collect_agent_config(self, agent_name: str, engagement: EngagementInfo) -> dict:
         """Collect agent-specific options from the operator."""
         config: dict = {}
 
@@ -224,7 +275,7 @@ class Orchestrator:
     async def _generate_report(
         self,
         agent_name: str,
-        auth: AuthRecord,
+        engagement: EngagementInfo,
         session: Session,
         findings: list[Finding],
         extra_meta: dict | None = None,
@@ -232,7 +283,7 @@ class Orchestrator:
         """Render and save Markdown, JSON, HTML, and PDF reports."""
         REPORTS_DIR.mkdir(exist_ok=True)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        safe_target = auth.target.replace("://", "_").replace("/", "_").replace(".", "_")[:40]
+        safe_target = engagement.target.replace("://", "_").replace("/", "_").replace(".", "_")[:40]
         base_name = f"{timestamp}_{agent_name}_{safe_target}"
 
         # Recover session context for richer meta. (get_all_context() is the
@@ -248,12 +299,12 @@ class Orchestrator:
 
         meta = {
             "agent":          agent_name,
-            "target":         auth.target,
-            "operator":       getattr(auth, "operator", "ARGUS Operator"),
+            "target":         engagement.target,
+            "operator":       getattr(engagement, "operator", "ARGUS Operator"),
             "session_id":     session.id,
             "generated_at":   datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "total_findings": len(findings),
-            "scope":          getattr(auth, "scope_description", ""),
+            "scope":          getattr(engagement, "scope_description", ""),
             "mode":           session_state.get("mode", ""),
             "tech_stack":     session_state.get("tech_stack", []),
             "open_ports":     session_state.get("open_ports", []),
@@ -281,7 +332,7 @@ class Orchestrator:
         reporter.save(reporter.render_html(findings, meta),     html_path)
         pdf_ok = reporter.render_pdf(findings, meta, pdf_path)
 
-        _print_summary(findings, auth.target)
+        _print_summary(findings, engagement.target)
         console.print(f"\n[bold green]✓ Reports saved:[/bold green]")
         console.print(f"  Markdown : [cyan]{md_path}[/cyan]")
         console.print(f"  JSON     : [cyan]{json_path}[/cyan]")

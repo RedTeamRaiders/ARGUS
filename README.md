@@ -168,7 +168,6 @@ ARGUS/
 │   └── ...              # 18 wrappers total
 │
 ├── shared/              # Core infrastructure
-│   ├── auth_gate.py     # Authorization enforcement (runs before every agent)
 │   ├── session.py       # SQLite-backed session + finding store
 │   ├── reporter.py      # Unified finding schema + Markdown/JSON report renderer
 │   └── logger.py        # Append-only JSON-lines audit trail
@@ -207,7 +206,7 @@ Audit logs are written to `.claude/audit.log` as JSON lines — every tool call,
 
 ## Security rules enforced by ARGUS
 
-1. `shared/auth_gate.py` runs before any agent — no exceptions
+1. No authorization gate — operators are trusted to confirm authorization out of band. Every run is still bound to the target/scope the operator enters (`shared/session.py`'s `Scope.contains()`, checked on every tool call in `base_agent._act`).
 2. Every finding must have an `evidence` field containing direct tool output
 3. Tool wrappers return structured JSON only — Claude never receives raw text
 4. Critical/High findings require 2+ independent tool confirmations

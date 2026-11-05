@@ -23,7 +23,6 @@ from config import (
     ANTHROPIC_API_KEY, DATA_DIR, MODEL_DEEP, MODEL_REASON,
     PROMPTS_DIR, SKILLS_DIR,
 )
-from shared.auth_gate import AuthRecord
 from shared.logger import audit
 from shared.reporter import Confidence, Finding, Severity, reporter
 from shared.session import Scope, Session
@@ -108,7 +107,7 @@ class ThreatModelAgent(BaseAgent):
         self,
         target:  str,
         scope:   Scope,
-        auth:    AuthRecord,
+        auth:    dict,
         session: Session,
         system_description: str = "",
         has_ai: bool = False,
