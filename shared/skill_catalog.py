@@ -83,7 +83,8 @@ def eligible(
 
     A skill is eligible when:
       - test_mode is "training_only" -> NEVER eligible for live selection
-        (see skills/_training/juice_shop_reference.md)
+        (reserved for target-specific regression-test material, if any
+        is ever added back under skills/_training/)
       - test_mode is "both", or intersects engagement_modes
       - every entry in `requires` is present in available_requirements
         (e.g. "codebase_path" is only satisfied when whitebox mode has

@@ -111,8 +111,9 @@ class TestSkillCatalog:
 
     def test_training_only_never_eligible(self):
         training_root = Path(__file__).resolve().parent.parent / "skills" / "_training"
-        # juice_shop_reference.md doesn't match *SKILL.md naming, so it's never
-        # even discovered by load_catalog — belt-and-suspenders with test_mode.
+        # Anything dropped under skills/_training/ for target-specific regression
+        # material must not match *SKILL.md naming, so load_catalog never even
+        # discovers it — belt-and-suspenders with the test_mode="training_only" gate.
         assert not list(training_root.glob("*SKILL.md"))
 
 
