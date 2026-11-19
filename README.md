@@ -291,6 +291,14 @@ The repository enforces this via `.gitignore` and a pre-commit hook
 
 ---
 
+## Acknowledgments
+
+- [sanatspy](https://github.com/sanatspy) — co-developer
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list.
+
+---
+
 ## License
 
 For authorized security testing only. See `LICENSE` for terms.
